@@ -66,16 +66,16 @@ endif
 
 OBJECTIVEC2_HEADERS =
 
-ifeq ($(OBJC2RUNTIME),0)
-  libgnustep-base_SUBPROJECTS = ObjectiveC2
-  OBJECTIVEC2_HEADERS += \
-	Availability.h blocks_runtime.h capabilities.h runtime.h
-else
+#ifeq ($(OBJC2RUNTIME),0)
+#  libgnustep-base_SUBPROJECTS = ObjectiveC2
+#  OBJECTIVEC2_HEADERS += \
+#	Availability.h blocks_runtime.h capabilities.h runtime.h
+#else
   ifeq ($(HAVE_BLOCKS),0)
     libgnustep-base_SUBPROJECTS = ObjectiveC2
     OBJECTIVEC2_HEADERS += blocks_runtime.h
   endif
-endif
+#endif
 
 libgnustep-base_SUBPROJECTS += Additions
 libgnustep-baseadd_SUBPROJECTS += Additions
@@ -536,9 +536,9 @@ libgnustep-baseadd_NEEDS_GUI = NO
 # build Additions as a subproject, causing concurrency issues).  If it
 # can be guaranteed that they'll never be built together, this could
 # be removed.
-ifeq ($(OBJC2RUNTIME),0)
-SUBPROJECTS = ObjectiveC2
-endif
+#ifeq ($(OBJC2RUNTIME),0)
+#SUBPROJECTS = ObjectiveC2
+#endif
 SUBPROJECTS += Additions
 
 -include Makefile.preamble
