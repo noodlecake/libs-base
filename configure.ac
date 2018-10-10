@@ -2156,8 +2156,6 @@ if test $safe_initialize = yes; then
   AC_DEFINE(HAVE_INITIALIZE,1,
 	    [Define if libobjc has thread-safe +initialize support])
 else
-  AC_DEFINE(HAVE_INITIALIZE,1,
-	    [Define if libobjc has thread-safe +initialize support])
   AC_MSG_WARN([Your ObjectiveC runtime does not support thread-safe class initialisation.  Please use a different runtime if you intend to use threads.])
 fi
 AC_MSG_RESULT($safe_initialize)
