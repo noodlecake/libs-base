@@ -1,10 +1,10 @@
 # Build products
 obj
-config.*
-GSConfig.h
-base.make
-Info-gnustep.plist
-dynamic-load.h
+#config.*
+#GSConfig.h
+#base.make
+#Info-gnustep.plist
+#dynamic-load.h
 Tests/base/*/GNUmakefile
 *.log
 *.sum
