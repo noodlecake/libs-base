@@ -1902,13 +1902,13 @@ else
         [  --enable-nxconstantstring
 	    Enables the use of the NXConstantString class for old compilers.],,
         enable_nxconstantstring=no)
-    if test $enable_nxconstantstring = yes; then
+    #if test $enable_nxconstantstring = yes; then
       NX_CONST_STRING_OBJCFLAGS=""
       NX_CONST_STRING_CLASS=NXConstantString
       AC_MSG_WARN([You have enabled the use of NXConstantString as the string class in gnustep-base.  The objective-c runtime library typically implements its own class of the same name, so you must either enforce a link order which ensures that the gnustep-base implementation is used, or (better) you must remove the class from the runtime library!])
-    else
+    #else
       AC_MSG_ERROR([Your compiler does not appear to implement the -fconstant-string-class option needed for support of strings.  Please check for a more recent version or consider using --enable-nxconstantstring])
-    fi
+    #fi
   fi
   CPPFLAGS="$strclass_CPPFLAGS"
 fi
@@ -1948,7 +1948,7 @@ AC_CHECK_FUNCS(objc_sync_enter)
 if test $ac_cv_func_objc_sync_enter = yes ; then
   OBJCSYNC=1
 else
-  OBJCSYNC=0
+  OBJCSYNC=1
   if test "$OBJC_RUNTIME_LIB" = "ng"; then
     AC_MSG_ERROR([The objc runtime library does not appear to have synchronisation support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
   fi
@@ -1968,7 +1968,7 @@ else
   if test $ac_cv_func_objc_setProperty = yes ; then
     OBJC2RUNTIME=1
   else
-    OBJC2RUNTIME=0
+    OBJC2RUNTIME=1
     if test "$OBJC_RUNTIME_LIB" = "ng"; then
       AC_MSG_ERROR([The objc runtime library does not appear to have property support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
     fi
@@ -1983,7 +1983,7 @@ AC_CHECK_FUNCS(_Block_copy)
 if test $ac_cv_func__Block_copy = yes ; then
   HAVE_BLOCKS=1
 else
-  HAVE_BLOCKS=0
+  HAVE_BLOCKS=1
   if test "$OBJC_RUNTIME_LIB" = "ng"; then
     AC_MSG_ERROR([The objc runtime library does not appear to have blocks support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
   fi
@@ -2053,7 +2053,7 @@ else
   if grep USE_OBJC_EXCEPTIONS $CURRENT_GNUSTEP_MAKEFILES/$lobj_dir/config.make | grep yes >&5 2>&5; then
     exceptions=yes
   else
-    exceptions=no
+    exceptions=yes
   fi
 fi
 
@@ -2117,7 +2117,7 @@ if test "$exceptions" = "yes"; then
         AC_MSG_NOTICE([Disabling native Objective-C exceptions because the ObjC runtime])
         AC_MSG_NOTICE([has no way to set an uncaught exception handler.  Please install])
         AC_MSG_NOTICE([a recent Objective-C runtime if you want to use them.])
-        exceptions="no";
+        exceptions="yes";
       fi
     fi
   fi
@@ -2129,7 +2129,7 @@ if test "$exceptions" = "yes"; then
   BASE_NATIVE_OBJC_EXCEPTIONS=1
 else
   AC_MSG_RESULT(no)
-  BASE_NATIVE_OBJC_EXCEPTIONS=0
+  BASE_NATIVE_OBJC_EXCEPTIONS=1
 fi
 AC_SUBST(BASE_NATIVE_OBJC_EXCEPTIONS)
 
@@ -2140,7 +2140,7 @@ AC_SUBST(BASE_NATIVE_OBJC_EXCEPTIONS)
 #--------------------------------------------------------------------
 AC_CHECK_FUNCS(objc_sync_enter)
 
-HAVE_OBJC_SYNC_ENTER=no
+HAVE_OBJC_SYNC_ENTER=yes
 if test $ac_cv_func_objc_sync_enter = yes ; then
   HAVE_OBJC_SYNC_ENTER=yes
 fi
@@ -2156,6 +2156,8 @@ if test $safe_initialize = yes; then
   AC_DEFINE(HAVE_INITIALIZE,1,
 	    [Define if libobjc has thread-safe +initialize support])
 else
+  AC_DEFINE(HAVE_INITIALIZE,1,
+	    [Define if libobjc has thread-safe +initialize support])
   AC_MSG_WARN([Your ObjectiveC runtime does not support thread-safe class initialisation.  Please use a different runtime if you intend to use threads.])
 fi
 AC_MSG_RESULT($safe_initialize)
