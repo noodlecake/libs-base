@@ -1939,6 +1939,7 @@ else
     AC_MSG_ERROR([The objc runtime library does not appear to have synchronisation support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
   fi
 fi
+OBJCSYNC=1
 AC_SUBST(OBJCSYNC)
 
 # Don't revert any Objective-C flags as they are used in the next test
@@ -1974,6 +1975,7 @@ else
     AC_MSG_ERROR([The objc runtime library does not appear to have blocks support.  Try re-configuring gnustep-make with a CPPFLAGS variable containing a -L point to specify the directory containing the correct libobjc, or using the --with-objc-lib-flag=... option.])
   fi
 fi
+HAVE_BLOCKS=1
 AC_SUBST(HAVE_BLOCKS)
 
 # Don't revert any Objective-C flags as they are used in the next test
