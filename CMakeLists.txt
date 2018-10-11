@@ -116,7 +116,7 @@ file(GLOB SRC
 		Source/NSConcreteHashTable.m
 		Source/NSConcreteMapTable.m
 		Source/NSConnection.m
-		Source/NSData.m
+		#Source/NSData.m
 		Source/NSDate.m
 		Source/NSDateFormatter.m
 		Source/NSDebug.m
@@ -131,7 +131,7 @@ file(GLOB SRC
 		Source/NSException.m
 		Source/NSFileCoordinator.m
 		Source/NSFileHandle.m
-		Source/NSFileManager.m
+		#Source/NSFileManager.m
 		Source/NSFileVersion.m
 		Source/NSFormatter.m
 		Source/NSGarbageCollector.m
@@ -236,6 +236,8 @@ file(GLOB SRC
 		Source/Foundation/android/unzip.m
 		Source/Foundation/android/NSPlatform.m
 		Source/Foundation/android/NSBundle.m
+		Source/Foundation/android/NSFileManager.m
+		Source/Foundation/android/NSData.m
 		)
 
 source_group(src FILES ${SRC})
