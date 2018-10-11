@@ -186,6 +186,7 @@ GS_EXPORT NSString* const NSLanguageCode;
 
 /** Key for locale dictionary: formal name of language. */
 GS_EXPORT NSString* const NSFormalName;
+
 #if	!NO_GNUSTEP
 /** Key for locale dictionary: name of locale. */
 GS_EXPORT NSString* const GSLocale;
