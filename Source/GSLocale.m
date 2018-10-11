@@ -81,7 +81,9 @@ privateSetLocale(int category, NSString *locale)
   return nil;
 }
 
-#define GSLanginfo(value) ToString(nl_langinfo (value))
+//#define GSLanginfo(value) ToString(nl_langinfo (value))
+
+#define GSLanginfo(value)  ToString("")
 
 
 /* Creates a locale dictionary from information provided by i18n functions.

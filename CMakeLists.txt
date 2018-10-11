@@ -17,7 +17,7 @@
 cmake_minimum_required(VERSION 2.8)
 INCLUDE (CheckIncludeFiles)
 
-project(libs-base)
+project(foundation)
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fblocks -D__BLOCKS__ -fobjc-runtime=gnustep-1.9 \
 -Wno-implicit-function-declaration \
@@ -229,6 +229,9 @@ file(GLOB SRC
 		Source/NSMessagePort.m
 		Source/NSMessagePortNameServer.m
 		Source/GSFFIInvocation.m
+
+		Source/Foundation/android/AndroidJNIHelper.m
+
 		)
 
 source_group(src FILES ${SRC})
@@ -244,7 +247,7 @@ include_directories(
 )
 
 
-message("-- building libs-base as shared lib")
-add_library(libs-base SHARED ${SRC} ${INCL})
+message("-- building foundation as shared lib")
+add_library(foundation SHARED ${SRC} ${INCL})
 
-target_link_libraries(libs-base ${log-lib} ${z-lib} objc ffi )
+target_link_libraries(foundation ${log-lib} ${z-lib} objc ffi )
