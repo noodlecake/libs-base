@@ -174,13 +174,15 @@ static inline void setup()
 static void
 handleExit()
 {
-  BOOL  unknownThread = GSRegisterCurrentThread();
-  CREATE_AUTORELEASE_POOL(arp);
 
 #ifdef ANDROID
-    __android_log_print(ANDROID_LOG_DEBUG,"GNUSTEP","EXITING early");
-    assert(false);
+  __android_log_print(ANDROID_LOG_DEBUG,"GNUSTEP","EXITING early");
+  assert(false);
 #endif
+
+
+  BOOL  unknownThread = GSRegisterCurrentThread();
+  CREATE_AUTORELEASE_POOL(arp);
 
 
   while (exited != 0)

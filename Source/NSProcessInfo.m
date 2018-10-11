@@ -954,6 +954,13 @@ extern char **__libc_argv;
 + (void) initialize
 {
   if (nil == procLock) procLock = [NSRecursiveLock new];
+
+#ifdef ANDROID
+_gnu_processName = [[NSString alloc] initWithCString:"game"];
+_gnu_environment = [[NSDictionary alloc] init];
+_gnu_arguments = [[NSArray alloc] init];
+#endif
+
 }
 #ifndef GS_PASS_ARGUMENTS
 #undef main
