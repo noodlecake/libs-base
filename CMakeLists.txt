@@ -102,7 +102,7 @@ file(GLOB SRC
 		Source/NSAssertionHandler.m
 		Source/NSAttributedString.m
 		Source/NSAutoreleasePool.m
-		Source/NSBundle.m
+		#Source/NSBundle.m
 		Source/NSCache.m
 		Source/NSCachedURLResponse.m
 		Source/NSCalendar.m
@@ -230,8 +230,12 @@ file(GLOB SRC
 		Source/NSMessagePortNameServer.m
 		Source/GSFFIInvocation.m
 
+		#android additions
 		Source/Foundation/android/AndroidJNIHelper.m
-
+		Source/Foundation/android/ioapi.m
+		Source/Foundation/android/unzip.m
+		Source/Foundation/android/NSPlatform.m
+		Source/Foundation/android/NSBundle.m
 		)
 
 source_group(src FILES ${SRC})
@@ -244,6 +248,7 @@ include_directories(
 		${CMAKE_CURRENT_LIST_DIR}/Headers
 		${CMAKE_CURRENT_LIST_DIR}/Headers/Additions
 		${CMAKE_CURRENT_LIST_DIR}/Source
+		${CMAKE_CURRENT_LIST_DIR}/Source/android
 )
 
 

@@ -10,9 +10,19 @@ remain the property of Noodlecake Studios Inc.
 ****************************************************************************/
 #import <Foundation/Foundation.h>
 
-#if defined(TARGET_OS_android)
+#if defined(ANDROID)
 #import "AndroidJNIHelper.h"
 #endif
+
+NSString *GSPrivateExecutablePath() {
+    return @"";
+}
+
+@interface NSBundle() {
+	NSMutableDictionary* _defaultLocalizedStringsDict;
+}
+
+@end
 
 
 static NSBundle* _mainBundle = nil;
@@ -29,6 +39,17 @@ static NSBundle* _mainBundle = nil;
 + (NSBundle*) bundleForClass: (Class)aClass
 {
     // NOTIMPLEMENTED
+    return [self mainBundle];
+}
+
++ (NSBundle *) bundleForLibrary: (NSString *)libraryName
+{
+return [self bundleForLibrary: libraryName  version: nil];
+}
+
++ (NSBundle *) bundleForLibrary: (NSString *)libraryName
+        version: (NSString *)interfaceVersion
+{
     return [self mainBundle];
 }
 
@@ -127,7 +148,7 @@ static NSBundle* _mainBundle = nil;
 
 - (NSString*) resourcePath
 {
-#if defined(TARGET_OS_android) || defined(TARGET_OS_googletv)
+#if defined(ANDROID)
 
 	NSString* bundlePath = [self bundlePath];
 	if(bundlePath) {
@@ -142,12 +163,13 @@ static NSBundle* _mainBundle = nil;
 
 - (void) onLanguageChanged {
 	// Flush the localized strings cache
-	[_defaultLocalizedStringsDict release];
+	if(_defaultLocalizedStringsDict)
+		[_defaultLocalizedStringsDict release];
 	_defaultLocalizedStringsDict = nil;
 }
 
 - (NSString*) systemLanguage {
-#if defined(TARGET_OS_android) || defined(TARGET_OS_googletv)
+#if defined(ANDROID)
 
 	JniMethodInfo t;
 
@@ -186,7 +208,7 @@ static NSBundle* _mainBundle = nil;
 }
 
 - (NSString*) currentCountry {
-#if defined(TARGET_OS_android) || defined(TARGET_OS_googletv)
+#if defined(ANDROID)
 
 	JniMethodInfo t;
 
@@ -205,16 +227,16 @@ static NSBundle* _mainBundle = nil;
 		return ret;
 	}
 
-	return @"XX";
+	return @"US";
 
 #else
-	return @"XX";
+	return @"US";
 #endif
 }
 
 - (NSString*) bundlePath
 {
-#if defined(TARGET_OS_android) || defined(TARGET_OS_googletv)
+#if defined(ANDROID)
 
 	JniMethodInfo t;
 
@@ -247,7 +269,7 @@ static NSBundle* _mainBundle = nil;
   NSString     *path;
   NSString     *contents=nil;
   NSDictionary *dictionary=nil;
-  Boolean defaultTable = NO;
+  BOOL defaultTable = NO;
 
   if ([table length] == 0) {
     table = @"Localizable";
@@ -279,3 +301,37 @@ static NSBundle* _mainBundle = nil;
 }
 
 @end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

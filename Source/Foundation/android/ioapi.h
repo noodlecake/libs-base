@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include "zlib.h"
 
-#if defined(USE_FILE32API)
+#if defined(ANDROID)
 #define fopen64 fopen
 #define ftello64 ftell
 #define fseeko64 fseek

@@ -16,19 +16,19 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#import <Foundation/NSPlatform.h>
+#import "NSPlatform.h"
 #import <Foundation/NSThread.h>
 #import <Foundation/NSString.h>
-#import <Foundation/NSRaise.h>
-#import <Foundation/NSDebug.h>
+//#import <Foundation/NSRaise.h>
+//#import <Foundation/NSDebug.h>
 #import <Foundation/NSArray.h>
 // #import <Foundation/NSPipe.h>
-#import <Foundation/NSMutableDictionary.h>
+#import <Foundation/NSDictionary.h>
 // #import <Foundation/NSNotificationCenter.h>
-#import <Foundation/NSFileHandle.h>
-#import <Foundation/NSRunLoop.h>
+//#import <Foundation/NSFileHandle.h>
+//#import <Foundation/NSRunLoop.h>
 #import <Foundation/NSData.h>
-// #import <Foundation/NSRaiseException.h>
+#import <Foundation/NSException.h>
 #import <Foundation/NSInvocation.h>
 
 #import "AndroidJNIHelper.h"
@@ -64,27 +64,27 @@ static NSPlatform *currentPlatform = nil;
 }
 
 -(Class)taskClass {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
 -(Class)pipeClass {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
 -(Class)lockClass {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
 -(Class)conditionLockClass {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
 -(Class)persistantDomainClass {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
@@ -112,7 +112,7 @@ static NSPlatform *currentPlatform = nil;
 }
 
 -(NSString *)fullUserName {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
@@ -163,51 +163,51 @@ static NSPlatform *currentPlatform = nil;
 }
 
 -(NSArray *)arguments {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
 -(NSDictionary *)environment {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
 -(NSTimeZone *)systemTimeZone {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
 -(NSString *)hostName {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
 -(NSString *)DNSHostName {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
 -(NSArray *)addressesForDNSHostName:(NSString *)name {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return nil;
 }
 
 -(void *)mapContentsOfFile:(NSString *)path length:(NSUInteger *)length {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return NULL;
 }
 
 -(void)unmapAddress:(void *)ptr length:(NSUInteger)length {
-   NSInvalidAbstractInvocation();
+   assert(false);
 }
 
 -(BOOL)readContentsOfFile:(NSString *)path bytes:(const void **)bytes length:(NSUInteger*)length {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return NO;
 }
 
 -(BOOL)writeContentsOfFile:(NSString *)path bytes:(const void *)bytes length:(NSUInteger)length atomically:(BOOL)atomically {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return NO;
 }
 
@@ -219,25 +219,25 @@ static NSPlatform *currentPlatform = nil;
 }
 
 -(void)startThread {
-   //NSInvalidAbstractInvocation();
+   //assert(false);
 }
 
 -(void)endThread {
-   //NSInvalidAbstractInvocation();
+   //assert(false);
 }
 
 -(Class)URLProtocolClass {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
 -(id)RunLoopCreate {
-   NSInvalidAbstractInvocation();
+   assert(false);
    return Nil;
 }
 
 -(void*)RunLoopGetCurrent {
-  NSInvalidAbstractInvocation();
+  assert(false);
   return NULL;
 }
 
