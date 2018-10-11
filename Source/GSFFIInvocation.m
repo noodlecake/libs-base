@@ -172,6 +172,8 @@ static IMP gs_objc_msg_forward2 (id receiver, SEL sel)
                */
               return NULL;
             }
+       NSLog(@"%c[%s %s]: unrecognized selector sent to instance %p", (class_isMetaClass(c) ? '+' : '-'),
+                class_getName(c), sel_getName(sel), receiver);
 	  [NSException raise: NSInvalidArgumentException
 	    format: @"%c[%s %s]: unrecognized selector sent to instance %p",
 	    (class_isMetaClass(c) ? '+' : '-'),

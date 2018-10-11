@@ -153,6 +153,10 @@ extern "C" {
  */
 + (NSThread*) mainThread;
 
+/** Sets the main thread of the process.
+ */
++ (void) setMainThread:(NSThread *)mainThread;
+
 /** Suspends execution of the process for the specified period.
  */
 + (void) sleepForTimeInterval: (NSTimeInterval)ti;

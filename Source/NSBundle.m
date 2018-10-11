@@ -348,6 +348,9 @@ AbsolutePathOfExecutable(NSString *path, BOOL atLaunch)
 NSString *
 GSPrivateExecutablePath()
 {
+#ifdef ANDROID
+    return @"";
+#endif
   static NSString	*executablePath = nil;
   static BOOL		beenHere = NO;
 
@@ -1562,6 +1565,7 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
 	   * obtaining a library resource bundle.
 	   */
 	  lib = GSPrivateSymbolPath (aClass, NULL);
+
 	  if ([lib isEqual: GSPrivateExecutablePath()] == YES)
 	    {
 	      lib = nil;	// In program, not library.

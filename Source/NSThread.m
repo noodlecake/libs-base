@@ -964,6 +964,11 @@ unregisterActiveThread(NSThread *thread)
     }
 }
 
++ (void) setMainThread:(NSThread *)mainThread
+{
+defaultThread = mainThread;
+}
+
 + (BOOL) isMainThread
 {
   return (GSCurrentThread() == defaultThread ? YES : NO);

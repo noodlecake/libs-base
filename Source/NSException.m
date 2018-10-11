@@ -1506,7 +1506,12 @@ callUncaughtHandler(id value)
     {
       // Only set the stack when first raised
       _e_stack = [GSStackTrace new];
+#ifdef ANDROID
+      //NSLog(@"EXCEPTION: %@", self);
+      assert(false);
+#else
       [_e_stack trace];
+#endif
     }
 
 #if     defined(_NATIVE_OBJC_EXCEPTIONS)

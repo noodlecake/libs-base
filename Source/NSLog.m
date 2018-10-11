@@ -37,6 +37,10 @@
 #import "Foundation/NSThread.h"
 #import "GNUstepBase/NSString+GNUstepBase.h"
 
+#ifdef ANDROID
+#include <android/log.h>
+#endif
+
 // Some older BSD systems used a non-standard range of thread priorities.
 #ifdef	HAVE_SYSLOG_H
 #include <syslog.h>
@@ -230,6 +234,10 @@ _NSLog_standard_printf_handler(NSString* message)
   write(_NSLogDescriptor, buf, len);
 #endif
 #endif // _WIN32
+
+#ifdef ANDROID
+  __android_log_print(ANDROID_LOG_INFO, "Foundation", "%s", [message cString]);
+#endif
 }
 
 /**

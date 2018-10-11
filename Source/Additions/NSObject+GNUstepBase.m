@@ -31,6 +31,11 @@
 #import "GNUstepBase/NSDebug+GNUstepBase.h"
 #import "GNUstepBase/NSThread+GNUstepBase.h"
 
+
+#ifdef ANDROID
+#import <android/log.h>
+#endif
+
 /* This file contains methods which nominally return an id but in fact
  * always rainse an exception and never return.
  * We need to suppress the compiler warning about that.
@@ -171,6 +176,12 @@ handleExit()
 {
   BOOL  unknownThread = GSRegisterCurrentThread();
   CREATE_AUTORELEASE_POOL(arp);
+
+#ifdef ANDROID
+    __android_log_print(ANDROID_LOG_DEBUG,"GNUSTEP","EXITING early");
+    assert(false);
+#endif
+
 
   while (exited != 0)
     {

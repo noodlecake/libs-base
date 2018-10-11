@@ -237,6 +237,12 @@ static NSMutableSet	*mySet = nil;
 static void
 _gnu_process_args(int argc, char *argv[], char *env[])
 {
+#ifdef ANDROID
+  _gnu_processName = [[NSString alloc] initWithCString:"game"];
+  _gnu_environment = [[NSDictionary alloc] init];
+  _gnu_arguments = [[NSArray alloc] init];
+#endif
+
   NSAutoreleasePool *arp = [NSAutoreleasePool new];
   NSString	*arg0 = nil;
   int i;
