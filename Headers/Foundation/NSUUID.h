@@ -50,7 +50,7 @@ typedef uint8_t gsuuid_t[16];
   gsuuid_t uuid;
 }
 
-+ (id)UUID;
++ (NSUUID*)UUID;
 - (id)initWithUUIDString:(NSString *)string;
 - (id)initWithUUIDBytes:(gsuuid_t)bytes;
 - (NSString *)UUIDString;

@@ -43,11 +43,11 @@ static const int kUUIDByteCount = 16;
  */
 @implementation NSUUID
 
-+ (id) UUID
++ (NSUUID*) UUID
 {
-  id    u;
+  NSUUID*    u;
 
-  u = [[self alloc] init];
+  u = (NSUUID*)[[self alloc] init];
   return AUTORELEASE(u);
 }
 
