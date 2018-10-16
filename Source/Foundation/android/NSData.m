@@ -364,7 +364,7 @@ readContentsOfFile(NSString *path, void **buf, off_t *len, NSZone *zone)
 		unsigned long fileLength = 0;
 		unsigned char *pData = readContentsOfZipFile(pszZipFilePath, pszFileName, &fileLength);
 
-		LOGD("Reading from apk: %s and got length: %i", pszFileName, len);
+		LOGD("Reading from apk: %s and got length: %lu", pszFileName, len);
 
 		*buf = pData;
 		*len = fileLength;
