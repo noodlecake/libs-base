@@ -255,6 +255,6 @@ include_directories(
 
 
 message("-- building foundation as shared lib")
-add_library(foundation SHARED ${SRC} ${INCL})
+add_library(foundation STATIC ${SRC} ${INCL})
 
 target_link_libraries(foundation ${log-lib} ${z-lib} objc ffi )
