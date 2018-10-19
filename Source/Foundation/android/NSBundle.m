@@ -195,6 +195,10 @@ return [self bundleForLibrary: libraryName  version: nil];
 #endif
 }
 
+- (NSString *) bundleIdentifier {
+	return @"com.noodlecake.ssg4";
+}
+
 - (NSString*) currentLanguage {
 	// Try to load an app specific language setting if available.  Otherwise, fallback to the system language.
 	//
