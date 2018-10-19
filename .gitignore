@@ -1,5 +1,7 @@
 # Build products
 obj
+.DS_Store
+**/.DS_Store
 #config.*
 #GSConfig.h
 #base.make
