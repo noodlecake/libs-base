@@ -161,9 +161,9 @@ static JavaVM *m_psJavaVM = NULL;
 
 		const char* chars = (*env)->GetStringUTFChars(env, jstr, &isCopy);
 		NSString* ret = [NSString stringWithUTF8String:chars];
-		if (isCopy) {
+		//if (isCopy) {
 			(*env)->ReleaseStringUTFChars(env, jstr, chars);
-		}
+		//}
 
 		return ret;
 	}
