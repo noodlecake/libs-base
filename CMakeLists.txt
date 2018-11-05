@@ -166,7 +166,6 @@ file(GLOB SRC
 		Source/NSObject+NSComparisonMethods.m
 		Source/NSOperation.m
 		Source/NSPage.m
-		Source/NSPathUtilities.m
 		Source/NSPipe.m
 		Source/NSPointerArray.m
 		Source/NSPointerFunctions.m
@@ -238,6 +237,7 @@ file(GLOB SRC
 		Source/Foundation/android/NSBundle.m
 		Source/Foundation/android/NSFileManager.m
 		Source/Foundation/android/NSData.m
+		Source/Foundation/android/NSPathUtilities.m
 		)
 
 source_group(src FILES ${SRC})
