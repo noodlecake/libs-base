@@ -18,6 +18,7 @@ typedef struct JniMethodInfo_ {
 
 }
 
++(JNIEnv*) getEnv;
 +(JavaVM*) getJavaVM;
 +(void) setJavaVM:(JavaVM *)javaVM;
 +(jclass) getClassID:(const char *)className withEnv:(JNIEnv *)env;

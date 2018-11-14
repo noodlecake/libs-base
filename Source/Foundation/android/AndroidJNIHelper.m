@@ -192,6 +192,14 @@ static JavaVM *m_psJavaVM = NULL;
 	return getMethodInfo_(methodinfo, className, methodName, paramCode);
 }
 
++(JNIEnv*) getEnv {
+	JNIEnv* env = 0;
+	if (! getEnv(&env)) {
+		return 0;
+	}
+	return env;
+}
+
 +(NSString*) stringFromJstring:(jstring)str {
 	return jstring2string_(str);
 }
