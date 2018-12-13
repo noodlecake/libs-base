@@ -200,6 +200,23 @@ static JavaVM *m_psJavaVM = NULL;
 	return env;
 }
 
++(jobject) getActivity {
+
+	JniMethodInfo t;
+
+	if ([self getStaticMethodInfo:&t
+			withClassName:"org/cocos2dx/lib/Cocos2dxActivity"
+	withMethodName:"getActivity"
+	withParamCode:"()Landroid/app/Activity;"]) {
+
+		jobject obj = (jobject) (*(t.env))->CallStaticObjectMethod(t.env, t.classID, t.methodID);
+		return obj;
+	}
+
+	return NULL;
+
+}
+
 +(NSString*) stringFromJstring:(jstring)str {
 	return jstring2string_(str);
 }
