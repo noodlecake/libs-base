@@ -129,7 +129,7 @@ GS_EXPORT NSString* const NSLoadedClasses;
   @private id _internal GS_UNUSED_IVAR;
 #endif
 }
-
+- (NSString*) systemLanguage;
 /** Return an array enumerating all the bundles in the application.  This
  *  does not include frameworks.  */
 + (NSArray*) allBundles;
@@ -638,6 +638,7 @@ GS_EXPORT NSString* const NSLoadedClasses;
  */
 #define NSLocalizedStringFromTableInBundle(key, tbl, bundle, comment) \
   [bundle localizedStringForKey:(key) value:@"" table:(tbl)]
+
 
 
 #if	defined(__cplusplus)
