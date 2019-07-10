@@ -245,7 +245,7 @@ source_group(src FILES ${SRC})
 #includes
 include_directories(
 		${CMAKE_CURRENT_LIST_DIR}/../libobjc2
-		${CMAKE_CURRENT_LIST_DIR}/../libffi/linux-arm
+		${CMAKE_CURRENT_LIST_DIR}/../prebuilt/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}/include
 		${CMAKE_CURRENT_LIST_DIR}
 		${CMAKE_CURRENT_LIST_DIR}/Headers
 		${CMAKE_CURRENT_LIST_DIR}/Headers/Additions
@@ -257,4 +257,5 @@ include_directories(
 message("-- building foundation as shared lib")
 add_library(foundation STATIC ${SRC} ${INCL})
 
-target_link_libraries(foundation ${log-lib} ${z-lib} objc ffi )
+target_link_libraries(foundation ${log-lib} ${z-lib} objc
+		${CMAKE_CURRENT_LIST_DIR}/../prebuilt/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}/lib/libffi.a)
