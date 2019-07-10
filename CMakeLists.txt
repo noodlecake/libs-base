@@ -19,7 +19,7 @@ INCLUDE (CheckIncludeFiles)
 
 project(foundation)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fblocks -D__BLOCKS__ -fobjc-runtime=gnustep-1.9 \
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fblocks -D__BLOCKS__ -fobjc-runtime=gnustep-2.0 \
 -Wno-implicit-function-declaration \
 -DGNUSTEP -DNS_BLOCKS_AVAILABLE -DGNUSTEP_BASE_LIBRARY=1 -DGNU_RUNTIME=1 -DGNUSTEP_BASE_LIBRARY=1 \
 -DGSWARN -DGSDIAGNOSE \
