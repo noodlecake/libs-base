@@ -6,6 +6,7 @@ http://www.noodlecake.com
 
 ****************************************************************************/
 #import <jni.h>
+#include <android/asset_manager.h> 
 #import <Foundation/NSObject.h>
 
 typedef struct JniMethodInfo_ {
@@ -26,5 +27,6 @@ typedef struct JniMethodInfo_ {
 +(BOOL) getStaticMethodInfo:(JniMethodInfo*)methodinfo withClassName:(const char *)className withMethodName:(const char *)methodName withParamCode:(const char *)paramCode;
 +(BOOL) getMethodInfo:(JniMethodInfo*)methodinfo withClassName:(const char *)className withMethodName:(const char *)methodName withParamCode:(const char *)paramCode;
 +(NSString*) stringFromJstring:(jstring)str;
-
++(void)setAssetManager:(jobject)j_obj;
++(AAssetManager*)getAssetManager;
 @end

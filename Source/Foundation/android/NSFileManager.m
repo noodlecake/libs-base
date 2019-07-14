@@ -285,57 +285,6 @@ static int gotoLocationOfFileInZip(const char* fileNameInZip, unzFile zipFile)  
 
     return unzGoToFilePos(zipFile, &pos);
 }
-
-static unsigned char* readContentsOfZipFile(const char* pszZipFilePath, const char* pszFileName, unsigned long * pSize)
-{
-    unsigned char * pBuffer = NULL;
-    unzFile pFile = NULL;
-    *pSize = 0;
-
-    do
-    {
-    	//LOGD("readContentsOfZipFile 1 %s", pszZipFilePath);
-
-        NS_BREAK_IF(!pszZipFilePath || !pszFileName);
-        NS_BREAK_IF(strlen(pszZipFilePath) == 0);
-
-        //LOGD("readContentsOfZipFile 2 %s", pszZipFilePath);
-
-        pFile = unzOpen(pszZipFilePath);
-        NS_BREAK_IF(!pFile);
-
-        //LOGD("readContentsOfZipFile 3 %s", pszZipFilePath);
-
-        int nRet = gotoLocationOfFileInZip(pszFileName, pFile); //unzLocateFile(pFile, pszFileName, 1);
-        NS_BREAK_IF(UNZ_OK != nRet);
-
-        char szFilePathA[260];
-        unz_file_info FileInfo;
-        nRet = unzGetCurrentFileInfo(pFile, &FileInfo, szFilePathA, sizeof(szFilePathA), NULL, 0, NULL, 0);
-        NS_BREAK_IF(UNZ_OK != nRet);
-
-        nRet = unzOpenCurrentFile(pFile);
-        NS_BREAK_IF(UNZ_OK != nRet);
-
-        pBuffer = ( unsigned char *)NSZoneMalloc(nil, FileInfo.uncompressed_size);
-        //pBuffer = new unsigned char[FileInfo.uncompressed_size];
-        int nSize = 0;
-        nSize = unzReadCurrentFile(pFile, pBuffer, FileInfo.uncompressed_size);
-        //TODO: should we check this??
-        //NSAssert(nSize == 0 || nSize == (int)FileInfo.uncompressed_size, @"the file size is wrong");
-
-        *pSize = FileInfo.uncompressed_size;
-        unzCloseCurrentFile(pFile);
-    } while (0);
-
-    if (pFile)
-    {
-    	//LOGD(@"readContentsOfZipFile 7 closing %s", pszZipFilePath);
-        unzClose(pFile);
-    }
-
-    return pBuffer;
-}
 #endif
 
 

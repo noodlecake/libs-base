@@ -33,6 +33,7 @@ THE SOFTWARE.
 #include "AndroidJniHelper.h"
 #include <android/log.h>
 #include <Foundation/NSString.h>
+#include <android/asset_manager_jni.h>
 
 #if 1
 #define  LOG_TAG    "AndroidJniHelper"
@@ -44,6 +45,8 @@ THE SOFTWARE.
 #define JAVAVM	[AndroidJniHelper getJavaVM]
 
 static JavaVM *m_psJavaVM = NULL;
+
+static AAssetManager* m_assetMgr = NULL;
 
     //////////////////////////////////////////////////////////////////////////
     // java vm helper function
@@ -221,4 +224,11 @@ static JavaVM *m_psJavaVM = NULL;
 	return jstring2string_(str);
 }
 
++(void)setAssetManager:(jobject)j_obj {
+	m_assetMgr = AAssetManager_fromJava([self getEnv], j_obj);
+}
+
++(AAssetManager*)getAssetManager {
+	return m_assetMgr;
+}
 @end

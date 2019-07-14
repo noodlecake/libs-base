@@ -92,11 +92,7 @@
 #import "AndroidJNIHelper.h"
 #include <android/log.h>
 #include "unzip.h"
-#define  LOG_TAG    "NSFileManager"
-#define  LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG,__VA_ARGS__)
 #define NS_BREAK_IF(cond)			if(cond) break;
-#else
-#define  LOGD(...)
 #endif
 
 #ifdef	HAVE_MMAP
@@ -198,61 +194,30 @@ static int gotoLocationOfFileInZip(const char* fileNameInZip, unzFile zipFile)  
 
 static unsigned char* readContentsOfZipFile(const char* pszZipFilePath, const char* pszFileName, unsigned long * pSize)
 {
-    unsigned char * pBuffer = NULL;
-    unzFile pFile = NULL;
-    *pSize = 0;
+    char* filename = pszFileName+7;
+    
+    #if DEBUG
+    NSDate *start2 = [NSDate date];
+    #endif
 
-    do
-    {
-    	//LOGD("readContentsOfZipFile 1 %s", pszZipFilePath);
-
-        NS_BREAK_IF(!pszZipFilePath || !pszFileName);
-        NS_BREAK_IF(strlen(pszZipFilePath) == 0);
-
-        //LOGD("readContentsOfZipFile 2 %s", pszZipFilePath);
-
-        pFile = unzOpen(pszZipFilePath);
-        NS_BREAK_IF(!pFile);
-
-        //LOGD("readContentsOfZipFile 3 %s", pszZipFilePath);
-
-        int nRet = gotoLocationOfFileInZip(pszFileName, pFile); //unzLocateFile(pFile, pszFileName, 1);
-        NS_BREAK_IF(UNZ_OK != nRet);
-
-        char szFilePathA[260];
-        unz_file_info FileInfo;
-        nRet = unzGetCurrentFileInfo(pFile, &FileInfo, szFilePathA, sizeof(szFilePathA), NULL, 0, NULL, 0);
-        NS_BREAK_IF(UNZ_OK != nRet);
-
-        nRet = unzOpenCurrentFile(pFile);
-        NS_BREAK_IF(UNZ_OK != nRet);
-
-        pBuffer = ( unsigned char *)NSZoneMalloc(nil, FileInfo.uncompressed_size);
-        //pBuffer = new unsigned char[FileInfo.uncompressed_size];
-        int nSize = 0;
-        nSize = unzReadCurrentFile(pFile, pBuffer, FileInfo.uncompressed_size);
-        //TODO: should we check this??
-        //NSAssert(nSize == 0 || nSize == (int)FileInfo.uncompressed_size, @"the file size is wrong");
-
-        *pSize = FileInfo.uncompressed_size;
-        unzCloseCurrentFile(pFile);
-    } while (0);
-
-    if (pFile)
-    {
-    	//LOGD(@"readContentsOfZipFile 7 closing %s", pszZipFilePath);
-        unzClose(pFile);
-    }
-
-    return pBuffer;
+    AAssetManager* assetManager   = [AndroidJniHelper getAssetManager];
+    assert(assetManager != NULL);
+    AAsset* asset                 = AAssetManager_open(assetManager, filename, 3);
+    assert(asset != NULL);
+    int bufferSize                = AAsset_getLength(asset);
+    (*pSize)                      = bufferSize;
+    unsigned char* buff = ( unsigned char *)NSZoneMalloc(nil, bufferSize);
+    AAsset_read(asset, buff, bufferSize);
+    AAsset_close(asset);
+    
+    #if DEBUG
+    NSDate *end2 = [NSDate date];
+    NSTimeInterval executionTime2 = [end2 timeIntervalSinceDate:start2];
+    NSLog(@"[NSData] took %f milliseconds to read readContentsOfZipFile %s", executionTime2 * 1000.0f, pszFileName);
+    #endif
+    return buff;
 }
 #endif
-
-
-
-
-
-
 
 static inline void
 decodebase64(unsigned char *dst, const unsigned char *src)
@@ -363,8 +328,6 @@ readContentsOfFile(NSString *path, void **buf, off_t *len, NSZone *zone)
 
 		unsigned long fileLength = 0;
 		unsigned char *pData = readContentsOfZipFile(pszZipFilePath, pszFileName, &fileLength);
-
-		LOGD("Reading from apk: %s and got length: %lu", pszFileName, fileLength);
 
 		*buf = pData;
 		*len = fileLength;
