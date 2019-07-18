@@ -56,15 +56,15 @@ enum
 	kCFNotFound = LONG_MAX
 };
 
-//#ifdef __LP64__
-//typedef double CGFloat;
-//#define CGFLOAT_MIN DBL_MIN
-//#define CGFLOAT_MAX DBL_MAX
-//#else
+#ifdef __LP64__
+typedef double CGFloat;
+#define CGFLOAT_MIN DBL_MIN
+#define CGFLOAT_MAX DBL_MAX
+#else
 typedef float CGFloat;
 #define CGFLOAT_MIN FLT_MIN
 #define CGFLOAT_MAX FLT_MAX
-//#endif
+#endif
 
 /*
 typedef struct CGPoint {

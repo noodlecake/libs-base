@@ -30,7 +30,7 @@ THE SOFTWARE.
 ****************************************************************************/
 
 
-#include "AndroidJniHelper.h"
+#include "AndroidJNIHelper.h"
 #include <android/log.h>
 #include <Foundation/NSString.h>
 

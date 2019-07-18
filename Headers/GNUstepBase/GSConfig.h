@@ -134,11 +134,19 @@
  */
 #define	GS_SIZEOF_SHORT		2
 #define	GS_SIZEOF_INT		4
+#ifdef __LP64__
+#define	GS_SIZEOF_LONG		8
+#else
 #define	GS_SIZEOF_LONG		4
+#endif
 #define	GS_SIZEOF_LONG_LONG	8
 #define	GS_SIZEOF_FLOAT		4
 #define	GS_SIZEOF_DOUBLE	8
+#ifdef __LP64__
+#define	GS_SIZEOF_VOIDP		8
+#else
 #define	GS_SIZEOF_VOIDP		4
+#endif
 
 /*
  *	Size information to be places in bits 5 and 6 of type encoding bytes
@@ -147,7 +155,11 @@
  */
 #define	_GSC_S_SHT	_GSC_I16
 #define	_GSC_S_INT	_GSC_I32
+#ifdef __LP64__
+#define	_GSC_S_LNG	_GSC_I64
+#else
 #define	_GSC_S_LNG	_GSC_I32
+#endif
 #define	_GSC_S_LNG_LNG	_GSC_I64
 
 /*
