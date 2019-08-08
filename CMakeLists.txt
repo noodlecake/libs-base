@@ -19,7 +19,7 @@ INCLUDE (CheckIncludeFiles)
 
 project(foundation)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fblocks -D__BLOCKS__ -fobjc-runtime=gnustep-1.9 \
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fblocks -D__BLOCKS__ -fobjc-runtime=${OBJC_RUNTIME_VERSION} \
 -Wno-implicit-function-declaration \
 -DGNUSTEP -DNS_BLOCKS_AVAILABLE -DGNUSTEP_BASE_LIBRARY=1 -DGNU_RUNTIME=1 -DGNUSTEP_BASE_LIBRARY=1 \
 -DGSWARN -DGSDIAGNOSE \
@@ -245,7 +245,7 @@ source_group(src FILES ${SRC})
 #includes
 include_directories(
 		${CMAKE_CURRENT_LIST_DIR}/../libobjc2
-		${CMAKE_CURRENT_LIST_DIR}/../libffi/linux-arm
+		${CMAKE_CURRENT_LIST_DIR}/../prebuilt/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}/include
 		${CMAKE_CURRENT_LIST_DIR}
 		${CMAKE_CURRENT_LIST_DIR}/Headers
 		${CMAKE_CURRENT_LIST_DIR}/Headers/Additions
@@ -255,6 +255,9 @@ include_directories(
 
 
 message("-- building foundation as shared lib")
-add_library(foundation STATIC ${SRC} ${INCL})
+add_library(foundation SHARED ${SRC} ${INCL})
 
-target_link_libraries(foundation ${log-lib} ${z-lib} objc ffi android)
+target_link_libraries(foundation ${log-lib} ${z-lib}
+		objc
+		android
+		${CMAKE_CURRENT_LIST_DIR}/../prebuilt/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}/lib/libffi.a -fuse-ld=gold)

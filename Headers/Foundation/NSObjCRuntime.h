@@ -96,6 +96,7 @@ typedef	uintptr_t	NSUInteger;
 #	define NSUIntegerMax UINTPTR_MAX
 #endif /* !defined(NSINTEGER_DEFINED) */
 
+
 #if     !defined(CGFLOAT_DEFINED)
 #if     GS_SIZEOF_VOIDP == 8
 #define CGFLOAT_IS_DBL  1
