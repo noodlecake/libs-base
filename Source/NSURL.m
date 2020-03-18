@@ -934,7 +934,8 @@ static NSUInteger	urlAlign;
 	      usesQueries = NO;
 	    }
           else if (strcmp(buf->scheme, "http") == 0
-            || strcmp(buf->scheme, "https") == 0)
+            || strcmp(buf->scheme, "https") == 0
+            || strcmp(buf->scheme, "appmarket") == 0)
 	    {
 	      buf->emptyPath = YES;
 	    }

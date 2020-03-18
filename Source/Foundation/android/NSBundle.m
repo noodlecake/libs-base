@@ -196,7 +196,7 @@ return [self bundleForLibrary: libraryName  version: nil];
 }
 
 - (NSString *) bundleIdentifier {
-	return @"com.noodlecake.ssg4";
+	return @"com.noodlecake.ssg4.huawei";
 }
 
 - (NSString*) currentLanguage {
