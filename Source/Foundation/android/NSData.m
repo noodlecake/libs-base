@@ -327,13 +327,15 @@ readContentsOfFile(NSString *path, void **buf, off_t *len, NSZone *zone)
 		const char* pszFileName = [insidePath UTF8String];
 
 		unsigned long fileLength = 0;
-		unsigned char *pData = readContentsOfZipFile(pszZipFilePath, pszFileName, &fileLength);
+		if(pszFileName) {
+            unsigned char *pData = readContentsOfZipFile(pszZipFilePath, pszFileName, &fileLength);
 
-		*buf = pData;
-		*len = fileLength;
+            *buf = pData;
+            *len = fileLength;
 
-		if(len > 0 && pData)
-			return YES;
+            if (len > 0 && pData)
+                return YES;
+        }
 
 		return NO;
 	}
