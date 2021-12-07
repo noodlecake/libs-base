@@ -229,6 +229,59 @@ file(GLOB SRC
 		Source/NSMessagePortNameServer.m
 		Source/GSFFIInvocation.m
 
+		#libs-update
+		Source/GSEasyHandle.m
+		Source/GSHTTPURLProtocol.m
+		Source/GSMultiHanlde.m
+		Source/GSNativeProtocol.m
+		Source/GSOrderedSet.m
+		Source/GSTaskeRegistry.m
+		Source/GSTimeoutSource.m
+		Source/GSTransferState.m
+		Source/GSURLSessionTaskBody.m
+		Source/GSURLSessionTaskBodySource.m
+		Source/NSAppleEventDescriptor.m
+		Source/NSAppleScript.m
+		Source/NSBackgroundActivityScheduler.m
+		Source/NSByteCountFormatter.m
+		Source/NSDateComponentsFormatter.m
+		Source/NSDateInterval.m
+		Source/NSDateIntervalFormatter.m
+		Source/NSEnergyFormatter.m
+		Source/NSExtensionContext.m
+		Source/NSExtensionItem.m
+		Source/NSFileWrapper.m
+		Source/NSHFSFileTypes.m
+		Source/NSISO8601DateFormatter.m
+		Source/NSItemProvider.m
+		Source/NSItemProviderReadingWriting.m
+		Source/NSLengthFormatter.m
+		Source/NSLinguisticTagger.m
+		Source/NSMassFormatter.m
+		Source/NSMeasurement.m
+		Source/NSMeasurementFormatter.m
+		Source/NSMetadataAttributes.m
+		Source/NSObjectScripting.m
+		Source/NSOrderedSet.m
+		Source/NSOrthography.m
+		Source/NSPersonNameComponents.m
+		Source/NSPersonNameComponentsFormatter.m
+		Source/NSProgress.m
+		Source/NSScriptClassDescription.m
+		Source/NSScriptCoercionHandler.m
+		Source/NSScriptCommande.m
+		Source/NSScriptCommandDescription.m
+		Source/NSScriptExecution.m
+		Source/NSScriptKeyValueCoding.m
+		Source/NSScriptObjectSpecifiers.m
+		Source/NSScriptStandardSuiteCommands.m
+		Source/NSScriptSuiteRegistery.m
+		Source/NSUbiquitousKeyValueStore.m
+		Source/NSUnit.m
+		Source/NSUserActivity.m
+		Source/NSUserScriptTask.m
+		Source/NSXPCConnection.m
+
 		#android additions
 		Source/Foundation/android/AndroidJNIHelper.m
 		Source/Foundation/android/ioapi.m
