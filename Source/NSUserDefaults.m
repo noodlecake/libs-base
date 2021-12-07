@@ -16,12 +16,12 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Boston, MA 02110 USA.
 
    <title>NSUserDefaults class reference</title>
    $Date$ $Revision$
@@ -57,7 +57,10 @@
 #import "GNUstepBase/NSString+GNUstepBase.h"
 
 #if	defined(_WIN32)
-@class	NSUserDefaultsWin32;
+/* Fake interface to avoid compiler warnings
+ */
+@interface	NSUserDefaultsWin32 : NSUserDefaults
+@end
 #endif
 
 #ifdef HAVE_LOCALE_H
@@ -566,7 +569,7 @@ newLanguages(NSArray *oldNames)
 {
   if (self == [NSUserDefaults class])
     {
-      CREATE_AUTORELEASE_POOL(pool);
+      ENTER_POOL
       NSEnumerator      *enumerator;
       NSArray           *args;
       NSString          *key;
@@ -655,7 +658,7 @@ newLanguages(NSArray *oldNames)
       syncLock = [NSLock new];
 
       [self _createArgumentDictionary: args];
-      DESTROY(pool);
+      LEAVE_POOL
     }
 }
 
@@ -1174,7 +1177,6 @@ newLanguages(NSArray *oldNames)
       // Load read-only defaults.
       ASSIGN(_lastSync, [NSDateClass date]);
       [self _readDefaults];
-      updateCache(self);
     }
 
   // Create an empty search list
@@ -1188,6 +1190,8 @@ newLanguages(NSArray *oldNames)
     setObject: [NSMutableDictionaryClass dictionaryWithCapacity: 10]
     forKey: NSRegistrationDomain];
   [_tempDomains setObject: GNUstepConfig(nil) forKey: GSConfigDomain];
+
+  updateCache(self);
 
   [[NSNotificationCenter defaultCenter] addObserver: self
            selector: @selector(synchronize)
@@ -1262,6 +1266,7 @@ newLanguages(NSArray *oldNames)
       [_searchList insertObject: aName atIndex: index];
       // Ensure that any persistent domain with the specified name is loaded.
       [self persistentDomainForName: aName];
+      updateCache(self);
       [_lock unlock];
     }
   NS_HANDLER
@@ -1352,24 +1357,23 @@ newLanguages(NSArray *oldNames)
 
 - (id) objectForKey: (NSString*)defaultName
 {
-  NSEnumerator	*enumerator;
-  IMP		nImp;
-  id		object = nil;
-  id		dN;
-  IMP		pImp;
-  IMP		tImp;
+  id	object = nil;
 
   [_lock lock];
   NS_DURING
     {
-      enumerator = [_searchList objectEnumerator];
-      nImp = [enumerator methodForSelector: nextObjectSel];
-      object = nil;
+      NSUInteger	count = [_searchList count];
+      IMP		pImp;
+      IMP		tImp;
+      NSUInteger	index;
+      GS_BEGINITEMBUF(items, count, NSObject*)
+
       pImp = [_persDomains methodForSelector: objectForKeySel];
       tImp = [_tempDomains methodForSelector: objectForKeySel];
-
-      while ((dN = (*nImp)(enumerator, nextObjectSel)) != nil)
-        {
+      [_searchList getObjects: items];
+      for (index = 0; index < count; index++)
+	{
+	  NSObject		*dN = items[index];
 	  GSPersistentDomain	*pd;
           NSDictionary		*td;
 
@@ -1381,6 +1385,7 @@ newLanguages(NSArray *oldNames)
 	    break;
         }
       RETAIN(object);
+      GS_ENDITEMBUF();
       [_lock unlock];
     }
   NS_HANDLER
@@ -1418,14 +1423,9 @@ newLanguages(NSArray *oldNames)
 
 - (void) setBool: (BOOL)value forKey: (NSString*)defaultName
 {
-  if (value == YES)
-    {
-      [self setObject: @"YES" forKey: defaultName];
-    }
-  else
-    {
-      [self setObject: @"NO" forKey: defaultName];
-    }
+  NSNumber	*n = [NSNumberClass numberWithBool: value];
+
+  [self setObject: n forKey: defaultName];
 }
 
 - (void) setDouble: (double)value forKey: (NSString*)defaultName
@@ -1611,19 +1611,23 @@ static BOOL isPlistObject(id o)
   [_lock lock];
   NS_DURING
     {
-      NSEnumerator	*e;
-      NSString		*n;
+      if (NO == [_searchList isEqual: newList])
+        {
+          NSEnumerator	*e;
+          NSString	*n;
 
-      DESTROY(_dictionaryRep);
-      RELEASE(_searchList);
-      _searchList = [newList mutableCopy];
-      /* Ensure that any domains we need are loaded.
-       */
-      e = [_searchList objectEnumerator];
-      while (nil != (n = [e nextObject]))
-	{
-	  [self persistentDomainForName:  n];
-	}
+          DESTROY(_dictionaryRep);
+          RELEASE(_searchList);
+          _searchList = [newList mutableCopy];
+          /* Ensure that any domains we need are loaded.
+           */
+          e = [_searchList objectEnumerator];
+          while (nil != (n = [e nextObject]))
+            {
+              [self persistentDomainForName:  n];
+            }
+          updateCache(self);
+        }
       [_lock unlock];
     }
   NS_HANDLER
@@ -1936,6 +1940,10 @@ static BOOL isPlistObject(id o)
     {
       DESTROY(_dictionaryRep);
       [_tempDomains removeObjectForKey: domainName];
+      if ([_searchList containsObject: domainName])
+        {
+          updateCache(self);
+        }
       [_lock unlock];
     }
   NS_HANDLER
@@ -1971,6 +1979,10 @@ static BOOL isPlistObject(id o)
       domain = [domain mutableCopy];
       [_tempDomains setObject: domain forKey: domainName];
       RELEASE(domain);
+      if ([_searchList containsObject: domainName])
+        {
+          updateCache(self);
+        }
       [_lock unlock];
     }
   NS_HANDLER
@@ -2096,6 +2108,7 @@ static BOOL isPlistObject(id o)
         }
       DESTROY(_dictionaryRep);
       [regDefs addEntriesFromDictionary: newVals];
+      updateCache(self);
       [_lock unlock];
     }
   NS_HANDLER
@@ -2118,6 +2131,7 @@ static BOOL isPlistObject(id o)
     {
       DESTROY(_dictionaryRep);
       [_searchList removeObject: aName];
+      updateCache(self);
       [_lock unlock];
     }
   NS_HANDLER
@@ -2300,11 +2314,14 @@ NSDictionary *GSPrivateDefaultLocale()
         {
           _changedDomains = [[NSMutableArray alloc] initWithObjects: &domainName
 							      count: 1];
-          updateCache(self);
         }
       else if ([_changedDomains containsObject: domainName] == NO)
         {
           [_changedDomains addObject: domainName];
+        }
+      if ([_searchList containsObject: domainName])
+        {
+          updateCache(self);
         }
       [[NSNotificationCenter defaultCenter]
 	postNotificationName: NSUserDefaultsDidChangeNotification
@@ -2337,7 +2354,6 @@ static BOOL isLocked = NO;
 
           while ([_fileLock tryLock] == NO)
             {
-              CREATE_AUTORELEASE_POOL(arp);
               NSDate		*lockDate;
 
               /*
@@ -2350,9 +2366,10 @@ static BOOL isLocked = NO;
                 {
                   fprintf(stderr, "Failed to lock user defaults database"
                     " even after breaking old locks!\n");
-                  RELEASE(arp);
                   break;
                 }
+
+              ENTER_POOL
 
               /* If lockDate is nil, we should be able to lock again ... but we
                * wait a little anyway ... so that in the case of a locking
@@ -2369,7 +2386,7 @@ static BOOL isLocked = NO;
                 {
                   [NSThread sleepForTimeInterval: 0.1];
                 }
-              RELEASE(arp);
+              LEAVE_POOL;
             }
           isLocked = YES;
         }

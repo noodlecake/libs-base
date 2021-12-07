@@ -69,6 +69,7 @@
   GSMimeDocument	*current;\
   GSMimeHeader		*version;\
   NSMutableArray	*queue;\
+  NSUInteger		maximum;\
   NSMutableArray	*pending;\
   NSInputStream		*istream;\
   NSOutputStream	*ostream;\
@@ -132,6 +133,7 @@ static NSString         *CteContentType = @"content-type";
 static NSString         *CteQuotedPrintable = @"quoted-printable";
 static NSString         *CteXuuencode = @"x-uuencode";
 
+typedef id (*oaiIMP)(id, SEL, NSUInteger);
 typedef BOOL (*boolIMP)(id, SEL, id);
 
 static char	*hex = "0123456789ABCDEF";
@@ -1525,7 +1527,7 @@ wordData(NSString *word, BOOL *encoded)
     }
 
   NSDebugMLLog(@"GSMime", @"Parse %u bytes - '%*.*s'",
-    (unsigned)l, (unsigned)l, (unsigned)l, [d bytes]);
+    (unsigned)l, (unsigned)l, (unsigned)l, (char*)[d bytes]);
 
   r = [self _endOfHeaders: d];
   if (r.location == NSNotFound)
@@ -2415,7 +2417,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
     }
 
   NSDebugMLLog(@"GSMime", @"Parse %u bytes - '%*.*s'",
-    (unsigned)l, (unsigned)l, (unsigned)l, [d bytes]);
+    (unsigned)l, (unsigned)l, (unsigned)l, (char*)[d bytes]);
   // NSDebugMLLog(@"GSMime", @"Boundary - '%*.*s'", [boundary length], [boundary length], [boundary bytes]);
 
   if ([context atEnd] == YES)
@@ -2425,7 +2427,7 @@ NSDebugMLLog(@"GSMime", @"Header parsed - %@", info);
       if ([d length] > 0)
 	{
 	  NSLog(@"Additional data (%*.*s) ignored after parse complete",
-	    (unsigned)[d length], (unsigned)[d length], [d bytes]);
+	    (unsigned)[d length], (unsigned)[d length], (char*)[d bytes]);
 	}
       needsMore = NO;	/* Nothing more to do	*/
     }
@@ -2998,12 +3000,12 @@ unfold(const unsigned char *src, const unsigned char *end, BOOL *folded)
 
 	      src = tmp + 1;
 	      if (src >= end) return nil;
-	      c = tolower(*src);
-	      if (c == 'b')
+	      c = toupper(*src);
+	      if (c == 'B')
 		{
 		  encoding = WE_BASE64;
 		}
-	      else if (c == 'q')
+	      else if (c == 'Q')
 		{
 		  encoding = WE_QUOTED;
 		}
@@ -3808,7 +3810,7 @@ static char* _charsToEncode = "()<>@,;:_\"/[]?.=";
 
 static NSUInteger
 quotableLength(const uint8_t *ptr, NSUInteger size, NSUInteger max,
-  NSUInteger *quotedLength)
+  NSUInteger *quotedLength, BOOL utf8)
 {
   NSUInteger    encoded;
   NSUInteger    index;
@@ -3816,17 +3818,45 @@ quotableLength(const uint8_t *ptr, NSUInteger size, NSUInteger max,
   for (encoded = index = 0; index < size; index++)
     {
       uint8_t   c = ptr[index];
-      int       add = 1;
 
       if (c < 32 || c >= 127 || strchr(_charsToEncode, c))
         {
-          add += 2;
+          if (encoded + 3 > max)
+            {
+              break;
+            }
+          encoded += 3;
         }
-      if (encoded + add > max)
+      else
         {
-          break;
+          if (encoded >= max)
+            {
+              break;
+            }
+          encoded++;
         }
-      encoded += add;
+    }
+
+  if (YES == utf8 && index < size)
+    {
+      uint8_t   c = ptr[index];
+
+      /* We are breaking up a utf-8 string, so we must make sure
+       * we don't break inside a character.
+       */
+      if ((c & 0xc0) == 0x80)
+        {
+          /* The next byte is a continuation byte, so we must be
+           * inside a utf-8 codepoint and need to step back out
+           * of it.
+           */
+          do
+            {
+              encoded -= 3;
+              c = ptr[--index];
+            }
+          while ((c & 0xc0) == 0x80);
+        }
     }
   *quotedLength = encoded;
   return index;
@@ -4062,8 +4092,13 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
       NSString          *cset = selectCharacterSet(str, &d);
       const uint8_t     *ptr = (const uint8_t*)[d bytes];
       NSUInteger        len = [d length];
+      BOOL              utf8 = NO;
 
-      if ([cset isEqualToString: @"us-ascii"])
+      if ([cset isEqualToString: @"utf-8"])
+        {
+          utf8 = YES;
+        }
+      else if ([cset isEqualToString: @"us-ascii"])
         {
           if (0 == fold)
             {
@@ -4152,8 +4187,8 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
               uint8_t           *buffer;
               NSUInteger        existingLength;
               NSUInteger        quotedLength;
-              NSUInteger        charLength;
-              uint8_t           style = 'q';
+              NSUInteger        byteLength;
+              uint8_t           style = 'Q';
 
               /* Calculate the number of encoded characters we can
                * fit on the current line.  If there's no room, we
@@ -4171,23 +4206,34 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
                   offset = 1;
                 }
 
-              charLength = quotableLength(ptr + pos, len - pos,
-                fold - offset - overhead, &quotedLength);
-              if (quotedLength > (charLength * 4) / 3)
+              byteLength = quotableLength(ptr + pos, len - pos,
+                fold - offset - overhead, &quotedLength, utf8);
+              if (quotedLength > (byteLength * 4) / 3)
                 {
                   /* Using base64 is more compact than using quoted
                    * text, so lets do that.
                    */
-                  style = 'b';
-                  charLength = ((fold - offset - overhead) / 4) * 3;
-                  if (charLength >= len - pos)
+                  style = 'B';
+                  byteLength = ((fold - offset - overhead) / 4) * 3;
+                  if (byteLength >= len - pos)
                     {
                       /* If we have less text than we can fit,
                        * just encode all of it.
                        */
-                      charLength = len - pos;
+                      byteLength = len - pos;
                     }
-                  quotedLength = 4 * ((charLength + 2) / 3);
+                  else if (YES == utf8
+                    && (ptr[pos + byteLength] % 0xc0) == 0x80)
+                    {
+                      /* The byte after the end of the data we propose
+                       * to encode is a utf8 continuation byte
+                       * so step back to the character boundary.
+                       */
+                      do {
+                        byteLength--;
+                      } while ((ptr[pos + byteLength] % 0xc0) == 0x80);
+                    }
+                  quotedLength = 4 * ((byteLength + 2) / 3);
                 }
 
               /* make sure we have enough space in the output buffer.
@@ -4205,23 +4251,33 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
               *buffer++ = '?';
               *buffer++ = style;
               *buffer++ = '?';
-              if ('q' == style)
+              if ('Q' == style)
                 {
-                  quotedWord(ptr + pos, charLength, buffer);
+                  quotedWord(ptr + pos, byteLength, buffer);
                 }
               else
                 {
-                  GSPrivateEncodeBase64(ptr + pos, charLength, buffer);
+                  GSPrivateEncodeBase64(ptr + pos, byteLength, buffer);
                 }
               buffer[quotedLength] = '?';
               buffer[quotedLength + 1] = '=';
               offset += quotedLength + overhead;
-              pos += charLength;
+              pos += byteLength;
             }
         }
       return offset;
     }
 }
+/* For testing
++ (NSUInteger) appendString: (NSString*)str
+                         to: (NSMutableData*)m
+                         at: (NSUInteger)offset
+                       fold: (NSUInteger)fold
+                         ok: (BOOL*)ok
+{
+  return appendString(m, offset, fold, str, ok);
+}
+*/
 
 /**
  * Returns the full text of the header, built from its component parts,
@@ -5004,11 +5060,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if (charset != nil)
     {
-      enc = (NSStringEncoding)NSMapGet(charsets, charset);
+      enc = (NSStringEncoding)(intptr_t)NSMapGet(charsets, charset);
       if (enc == 0)
 	{
 	  charset = [charset lowercaseString];
-	  enc = (NSStringEncoding)NSMapGet(charsets, charset);
+	  enc = (NSStringEncoding)(intptr_t)NSMapGet(charsets, charset);
 	}
     }
   return enc;
@@ -5669,14 +5725,20 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   return nil;
 }
 
-/**
- * Convenience method to fetch the content file name from the header.
+/** Convenience method to fetch the content file name from the content-type
+ * or content-disposition header.
  */
 - (NSString*) contentFile
 {
-  GSMimeHeader	*hdr = [self headerNamed: @"content-disposition"];
+  GSMimeHeader	*hdr = [self headerNamed: CteContentType];
+  NSString	*str = [hdr parameterForKey: @"name"];
 
-  return [hdr parameterForKey: @"filename"];
+  if (nil == str)
+    {
+      hdr = [self headerNamed: @"content-disposition"];
+      str = [hdr parameterForKey: @"filename"];
+    }
+  return str;
 }
 
 /**
@@ -6130,12 +6192,12 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if (count > 0)
     {
-      IMP	imp1;
+      oaiIMP	imp1;
       boolIMP	imp2;
 
       name = [name lowercaseString];
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       while (count-- > 0)
 	{
@@ -6214,14 +6276,14 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
 - (NSString*) description
 {
-  CREATE_AUTORELEASE_POOL(arp);
-  NSMutableString       *m;
   NSString              *s;
 
-  m = [NSMutableString stringWithCapacity: 1000];
+  ENTER_POOL
+  NSMutableString       *m = [NSMutableString stringWithCapacity: 1000];
   [self _descriptionTo: m level: 0];
   s = RETAIN(m);
-  RELEASE(arp);
+  LEAVE_POOL
+
   return AUTORELEASE(s);  
 }
 
@@ -6276,11 +6338,11 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   if (count > 0)
     {
       NSUInteger	index;
-      IMP		imp1;
+      oaiIMP		imp1;
       boolIMP		imp2;
 
       name = [headerClass makeToken: name preservingCase: NO];
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       for (index = 0; index < count; index++)
 	{
@@ -6310,10 +6372,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
     {
       NSUInteger	index;
       NSMutableArray	*array;
-      IMP		imp1;
+      oaiIMP		imp1;
       boolIMP		imp2;
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       array = [NSMutableArray array];
 
@@ -7231,10 +7293,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
   if (count > 0)
     {
       NSUInteger	index;
-      IMP	        imp1;
+      oaiIMP	        imp1;
       boolIMP	        imp2;
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       for (index = 0; index < count; index++)
 	{
@@ -7256,10 +7318,10 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
   if (count > 0)
     {
-      IMP	imp1;
+      oaiIMP	imp1;
       boolIMP	imp2;
 
-      imp1 = [headers methodForSelector: @selector(objectAtIndex:)];
+      imp1 = (oaiIMP)[headers methodForSelector: @selector(objectAtIndex:)];
       imp2 = (boolIMP)[name methodForSelector: @selector(isEqualToString:)];
       while (count-- > 0)
 	{
@@ -7336,7 +7398,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 
 - (void) encodePart: (GSMimeDocument*)document to: (NSMutableData*)md
 {
-  CREATE_AUTORELEASE_POOL(arp);
+  ENTER_POOL
   NSData		*d = nil;
   NSEnumerator		*enumerator;
   NSString              *subtype;
@@ -7759,7 +7821,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 	  [md appendData: d];
 	}
     }
-  RELEASE(arp);
+  LEAVE_POOL
 }
 
 - (NSUInteger) foldAt
@@ -7870,7 +7932,7 @@ appendString(NSMutableData *m, NSUInteger offset, NSUInteger fold,
 @end
 
 
-NSString* const GSMimeErrorDomain = @"GSMimeErrorDomain";
+GS_DECLARE NSString* const GSMimeErrorDomain = @"GSMimeErrorDomain";
 
 typedef	enum	{
   TP_IDLE,
@@ -7991,7 +8053,7 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 
 @implementation	GSMimeSMTPClient
 
-/* Shuts the connection down, fails any message in progress, anbd discards all
+/* Shuts the connection down, fails any message in progress, and discards all
  * queued messages as 'unsent'
  */
 - (void) abort
@@ -8086,6 +8148,11 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
   return internal->lastError;
 }
 
+- (NSUInteger) queueSize
+{
+  return [internal->queue count];
+}
+
 - (void) send: (GSMimeDocument*)message
 {
   [self send: message envelopeID: nil];
@@ -8131,6 +8198,14 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 - (void) setIdentity: (NSString*)s
 {
   ASSIGNCOPY(internal->identity, s);
+}
+
+- (NSUInteger) setMaximum: (NSUInteger)m
+{
+  NSUInteger	old = internal->maximum;
+
+  internal->maximum = m;
+  return old;
 }
 
 - (void) setOriginator: (NSString*)s
@@ -8883,9 +8958,28 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 
   [internal->pending removeAllObjects];
   ASSIGN(internal->lastError, e);
-  if (internal->current != nil)
+  if (nil == internal->current)
     {
-      GSMimeDocument	*d = [internal->current retain];
+      while ([self queueSize] > internal->maximum)
+	{
+	  GSMimeDocument	*d = RETAIN([internal->queue objectAtIndex: 0]);
+
+	  [internal->queue removeObjectAtIndex: 0];
+	  if (nil == internal->delegate)
+	    {
+	      NSDebugMLLog(@"GSMime", @"-smtpClient:mimeUnsent: %@ %@",
+		self, d);
+	    }
+	  else
+	    {
+	      [internal->delegate smtpClient: self mimeUnsent: d];
+	    }
+	  RELEASE(d);
+	}
+    }
+  else
+    {
+      GSMimeDocument	*d = RETAIN(internal->current);
 
       [internal->queue removeObjectAtIndex: 0];
       internal->current = nil;
@@ -8897,7 +8991,7 @@ GS_PRIVATE_INTERNAL(GSMimeSMTPClient)
 	{
           [internal->delegate smtpClient: self mimeFailed: d];
 	}
-      [d release];
+      RELEASE(d);
     }
   if ([internal->queue count] > 0)
     {

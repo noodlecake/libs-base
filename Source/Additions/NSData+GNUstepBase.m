@@ -332,7 +332,7 @@ randombytes(uint8_t *buf, unsigned len)
             }
           stream.next_out = dst + stream.total_out;
           stream.avail_out = (unsigned)(capacity - stream.total_out);
-          deflate(&stream, Z_FINISH);
+          (void)deflate(&stream, Z_FINISH);
         }
       deflateEnd(&stream);
       result = [NSMutableData alloc];
@@ -425,7 +425,7 @@ randombytes(uint8_t *buf, unsigned len)
   if (self == nil)
     {
       [NSException raise: NSInvalidArgumentException
-		  format: @"%@: invalid hexadeciaml string data",
+		  format: @"%@: invalid hexadecimal string data",
 	NSStringFromSelector(_cmd)];
     }
   return self;

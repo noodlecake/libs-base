@@ -63,6 +63,9 @@
 #define	MAC_OS_X_VERSION_10_9	1090
 #define MAC_OS_X_VERSION_10_10	1100
 #define MAC_OS_X_VERSION_10_11	1110
+#define MAC_OS_X_VERSION_10_12	1120
+#define MAC_OS_X_VERSION_10_13	1130
+#define MAC_OS_X_VERSION_10_14	1140
 #endif	/* MAC_OS_X_VERSION_10_0 */
 
 /* Allow MAC_OS_X_VERSION_MAX_ALLOWED to be used in place of GS_OPENSTEP_V
@@ -280,20 +283,15 @@
  * in the class source itsself
  */
 
-#if	GS_MIXEDABI
-#  undef	GS_NONFRAGILE
-#  define	GS_NONFRAGILE	0	/* Mixed is treated as fragile */
+#if (__has_feature(objc_nonfragile_abi))
+#  if	!GS_NONFRAGILE
+#    if	defined(GNUSTEP_BASE_INTERNAL)
+#      error "You are building gnustep-base using the objc-nonfragile-abi but your gnustep-base was not configured to use it."
+#    endif
+#  endif
 #else
-#  if (__has_feature(objc_nonfragile_abi))
-#    if	!GS_NONFRAGILE
-#      if	defined(GNUSTEP_BASE_INTERNAL)
-#        error "You are building gnustep-base using the objc-nonfragile-abi but your gnustep-base was not configured to use it."
-#      endif
-#    endif
-#  else
-#    if	GS_NONFRAGILE
-#      error "Your gnustep-base was configured for the objc-nonfragile-abi but you are not using it now."
-#    endif
+#  if	GS_NONFRAGILE
+#    error "Your gnustep-base was configured for the objc-nonfragile-abi but you are not using it now."
 #  endif
 #endif
 
@@ -386,20 +384,33 @@ static inline void gs_consumed(id NS_CONSUMED GS_UNUSED_ARG o) { return; }
   /* On Mingw, the compiler will export all symbols automatically, so
    * __declspec(dllexport) is not needed.
    */
+#  define GS_EXPORT_CLASS
 #  define GS_EXPORT  extern
+#  define GS_IMPORT  __declspec(dllimport)
 #  define GS_DECLARE
 # else
-#  define GS_EXPORT  __declspec(dllexport)
+#  define GS_EXPORT_CLASS  __declspec(dllexport)
+#  define GS_EXPORT  extern __declspec(dllexport)
+#  define GS_IMPORT  __declspec(dllimport)
 #  define GS_DECLARE __declspec(dllexport)
 # endif
 #else
+# if defined(__MINGW__)
+   /* MinGW does not need dllimport on ObjC classes and produces warnings. */
+#  define GS_EXPORT_CLASS
+# else
+#  define GS_EXPORT_CLASS  __declspec(dllimport)
+# endif
+#  define GS_IMPORT  __declspec(dllimport)
 #  define GS_EXPORT  extern __declspec(dllimport)
 #  define GS_DECLARE __declspec(dllimport)
 #endif
 
 #else /* GNUSTEP_WITH[OUT]_DLL */
 
+#  define GS_EXPORT_CLASS
 #  define GS_EXPORT extern
+#  define GS_IMPORT
 #  define GS_DECLARE
 
 #endif
@@ -409,10 +420,10 @@ static inline void gs_consumed(id NS_CONSUMED GS_UNUSED_ARG o) { return; }
  */
 
 #ifndef NS_FORMAT_ARGUMENT
-#if defined(__clang__) || GS_GCC_MINREQ(4,2)
+#if defined(__clang__)
 #  define NS_FORMAT_ARGUMENT(A) __attribute__((format_arg(A)))
 #else
-#  define NS_FORMAT_ARGUMENT(F,A) 
+#  define NS_FORMAT_ARGUMENT(A)
 #endif
 #endif
 

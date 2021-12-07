@@ -14,12 +14,12 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Boston, MA 02110 USA.
 
    <title>NSDateFormatter class reference</title>
    $Date$ $Revision$
@@ -46,13 +46,13 @@
 #import "Foundation/NSDateFormatter.h"
 #import "Foundation/NSCoder.h"
 
-#if defined(HAVE_UNICODE_UDAT_H)
+#if defined(HAVE_UNICODE_UDAT_H) && defined(HAVE_UNICODE_UDATPG_H)
 #define id id_ucal
 #include <unicode/udat.h>
 #undef id
-#endif
-#if defined(HAVE_UNICODE_UDATPG_H)
 #include <unicode/udatpg.h>
+#elif defined(HAVE_ICU_H)
+#include <icu.h>
 #endif
 
 
@@ -946,8 +946,13 @@ static NSDateFormatterBehavior _defaultBehavior = 0;
       pat = malloc(sizeof(UChar) * patLength);
       [self->_dateFormat getCharacters: pat];
     }
+#if U_ICU_VERSION_MAJOR_NUM >= 50
   timeStyle = pat ? UDAT_PATTERN : NSToUDateFormatStyle (internal->_timeStyle);
   dateStyle = pat ? UDAT_PATTERN : NSToUDateFormatStyle (internal->_dateStyle);
+#else
+  timeStyle = NSToUDateFormatStyle (internal->_timeStyle);
+  dateStyle = NSToUDateFormatStyle (internal->_dateStyle);
+#endif
   internal->_formatter = udat_open (timeStyle, dateStyle,
                           [[internal->_locale localeIdentifier] UTF8String],
                           tzID, tzIDLength, pat, patLength, &err);
@@ -1029,7 +1034,7 @@ symbolRange(NSInteger symbol, int *from)
       unichar           *value;
       NSString          *str;
       NSZone            *z = [self zone];
-      UErrorCode        err = U_ERROR_LIMIT;
+      UErrorCode        err = U_ZERO_ERROR;
       
       length
         = udat_getSymbols(internal->_formatter, symbol, idx, NULL, 0, &err);

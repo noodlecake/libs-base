@@ -468,11 +468,16 @@ parseNumber(ParserState *state)
     {\
       bufferSize *= 2;\
       if (number == numberBuffer)\
-	number = malloc(bufferSize);\
+        {\
+          number = malloc(bufferSize);\
+          memcpy(number, numberBuffer, sizeof(numberBuffer));\
+        }\
       else\
-	number = realloc(number, bufferSize);\
+        {\
+          number = realloc(number, bufferSize);\
+        }\
     }\
-    number[parsedSize++] = (char)x; } while (0)
+  number[parsedSize++] = (char)x; } while (0)
   // JSON numbers must start with a - or a digit
   if (!(c == '-' || isdigit(c)))
     {
@@ -508,6 +513,8 @@ parseNumber(ParserState *state)
               free(number);
               number = numberBuffer;
             }
+            parseError(state);
+            return nil;
         }
       BUFFER(c);
       while (isdigit(c = consumeChar(state)))
@@ -567,7 +574,10 @@ parseArray(ParserState *state)
     {
       if (NO == [array makeImmutable])
         {
+	  id	a = array;
+
           array = [array copy];
+	  RELEASE(a);
         }
     }
   return array;
@@ -631,11 +641,13 @@ parseObject(ParserState *state)
     {
       if (NO == [dict makeImmutable])
         {
+	  id	d = dict;
+
           dict = [dict copy];
+	  RELEASE(d);
         }
     }
   return dict;
-
 }
 
 /**
@@ -648,9 +660,10 @@ parseValue(ParserState *state)
 
   if (state->error) { return nil; };
   c = consumeSpace(state);
-  //   2.1: A JSON value MUST be an object, array, number, or string, or one of the
-  //   following three literal names:
-  //            false null true
+  /*   2.1: A JSON value MUST be an object, array, number, or string,
+   *   or one of the following three literal names:
+   *   false null true
+   */
   switch (c)
     {
       case (unichar)'"':
@@ -878,7 +891,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
                 {
                   size += 2;
                 }
-              else if (c < 0x20)
+              else if (c < 0x20 || c > 0x7f)
                 {
                   size += 6;
                 }
@@ -909,7 +922,7 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs)
                       default: to[j++] = '"'; break;
                     }
                 }
-              else if (c < 0x20)
+              else if (c < 0x20 || c > 0x7f)
                 {
                   char	buf[5];
 

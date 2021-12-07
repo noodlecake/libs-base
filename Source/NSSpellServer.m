@@ -19,7 +19,7 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; see the file COPYING.LIB.
@@ -40,17 +40,13 @@
 #import "Foundation/NSException.h"
 #import "Foundation/NSSet.h"
 
-NSString *const NSGrammarRange = @"NSGrammarRange";
-NSString *const NSGrammarUserDescription = @"NSGrammarUserDescription";
-NSString *const NSGrammarCorrections = @"NSGrammarCorrections";
-
 static NSConnection *spellServerConnection = nil;
 
 /* User dictionary location */
 static NSString *GNU_UserDictionariesDir = @"Dictionaries";
 
 // Function to create name for spell server....
-NSString*
+GS_DECLARE NSString*
 GSSpellServerName(NSString *vendor, NSString *language)
 {
   NSString *serverName = nil;

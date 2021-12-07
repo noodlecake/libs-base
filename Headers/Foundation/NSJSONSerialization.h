@@ -45,19 +45,20 @@ typedef NSUInteger NSJSONReadingOptions;
  * NSJSONSerialization implements serializing and deserializing acyclic object
  * graphs in JSON.
  */
+GS_EXPORT_CLASS
 @interface NSJSONSerialization : NSObject
- + (NSData *)dataWithJSONObject:(id)obj
-                        options:(NSJSONWritingOptions)opt
-                          error:(NSError **)error;
-+ (BOOL)isValidJSONObject:(id)obj;
-+ (id)JSONObjectWithData:(NSData *)data
-                 options:(NSJSONReadingOptions)opt
-                   error:(NSError **)error;
-+ (id)JSONObjectWithStream:(NSInputStream *)stream
-                   options:(NSJSONReadingOptions)opt
-                     error:(NSError **)error;
-+ (NSInteger)writeJSONObject:(id)obj
-                    toStream:(NSOutputStream *)stream
-                     options:(NSJSONWritingOptions)opt
-                       error:(NSError **)error;
++ (NSData*) dataWithJSONObject: (id)obj
+                       options: (NSJSONWritingOptions)opt
+                         error: (NSError **)error;
++ (BOOL) isValidJSONObject: (id)obj;
++ (id) JSONObjectWithData: (NSData *)data
+                  options: (NSJSONReadingOptions)opt
+                    error: (NSError **)error;
++ (id) JSONObjectWithStream: (NSInputStream *)stream
+                    options: (NSJSONReadingOptions)opt
+                      error: (NSError **)error;
++ (NSInteger) writeJSONObject: (id)obj
+                     toStream: (NSOutputStream *)stream
+                      options: (NSJSONWritingOptions)opt
+                        error: (NSError **)error;
 @end

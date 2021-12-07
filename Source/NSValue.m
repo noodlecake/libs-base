@@ -16,12 +16,12 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Boston, MA 02110 USA.
 
    <title>NSValue class reference</title>
    $Date$ $Revision$
@@ -441,7 +441,7 @@ static NSLock			*placeholderLock;
       return;
     }
 
-  NSGetSizeAndAlignment(objctype, 0, &tsize);
+  NSGetSizeAndAlignment(objctype, &tsize, NULL);
   data = (void *)NSZoneMalloc([self zone], tsize);
   [self getValue: (void*)data];
   d = [NSMutableData new];
@@ -584,7 +584,7 @@ static NSLock			*placeholderLock;
 	   * For performance, decode small values directly onto the stack,
 	   * For larger values we allocate and deallocate heap space.
 	   */
-	  NSGetSizeAndAlignment(objctype, 0, &tsize);
+	  NSGetSizeAndAlignment(objctype, &tsize, NULL);
 	  if (tsize <= 64)
 	    {
 	      unsigned char data[tsize];
@@ -626,7 +626,7 @@ static NSLock			*placeholderLock;
        * For performance, decode small values directly onto the stack,
        * For larger values we allocate and deallocate heap space.
        */
-      NSGetSizeAndAlignment(objctype, 0, &tsize);
+      NSGetSizeAndAlignment(objctype, &tsize, NULL);
       if (tsize <= 64)
 	{
 	  unsigned char	data[tsize];

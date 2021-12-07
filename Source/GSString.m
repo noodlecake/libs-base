@@ -25,12 +25,12 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Boston, MA 02110 USA.
 */
 
 #import "common.h"
@@ -76,6 +76,17 @@ static BOOL isByteEncoding(NSStringEncoding enc)
 struct objc_class _NSConstantStringClassReference;
 #endif
 
+/* Count the number of bytes that make up this UTF-8 code point.
+   This to keep in mind:
+      * This macro doesn't return anything larger than '4'
+      * Legal UTF-8 cannot be larger than 4 bytes long (0x10FFFF)
+      * It will return 0 for anything illegal
+ */
+#define UTF8_BYTE_COUNT(c) \
+  (((c) < 0xf8) ? 1 + ((c) >= 0xc0) + ((c) >= 0xe0) + ((c) >= 0xf0) : 0)
+
+
+#ifndef GNUSTEP_NEW_STRING_ABI
 /* Determine the length of the UTF-8 string as a unicode (UTF-16) string.
  * sets the ascii flag according to the content found.
  */
@@ -182,15 +193,6 @@ lengthUTF8(const uint8_t *p, unsigned l, BOOL *ascii, BOOL *latin1)
   return l;
 }
 
-/* Count the number of bytes that make up this UTF-8 code point.
-   This to keep in mind:
-      * This macro doesn't return anything larger than '4'
-      * Legal UTF-8 cannot be larger than 4 bytes long (0x10FFFF)
-      * It will return 0 for anything illegal
- */
-#define UTF8_BYTE_COUNT(c) \
-  (((c) < 0xf8) ? 1 + ((c) >= 0xc0) + ((c) >= 0xe0) + ((c) >= 0xf0) : 0)
-
 /* Sequentially extracts characters from UTF-8 string
  * p = pointer to the utf-8 data
  * l = length (bytes) of the utf-8 data
@@ -294,6 +296,7 @@ nextUTF8(const uint8_t *p, unsigned l, unsigned *o, unichar *n)
 	      format: @"no more data in UTF-8 string"];
   return 0;
 }
+#endif
 
 static BOOL
 literalIsEqualInternal(NXConstantString *s, GSStr o)
@@ -638,6 +641,7 @@ static Class GSUnicodeStringClass = 0;
 static Class GSUnicodeBufferStringClass = 0;
 static Class GSUnicodeSubStringClass = 0;
 static Class GSUInlineStringClass = 0;
+static Class GSImmutableStringClass = 0;
 static Class GSMutableStringClass = 0;
 static Class NSConstantStringClass = 0;
 
@@ -648,6 +652,7 @@ static SEL	equalSel;
 static BOOL	(*equalImp)(id, SEL, id);
 static SEL	hashSel;
 static NSUInteger (*hashImp)(id, SEL);
+static Ivar	immutableIvar;
 
 /*
  * The setup() function is called when any concrete string class is
@@ -693,6 +698,14 @@ setup(BOOL rerun)
       GSUnicodeSubStringClass = [GSUnicodeSubString class];
       GSMutableStringClass = [GSMutableString class];
       NSConstantStringClass = [NXConstantString class];
+
+      /* This comes from the base additions library.  The instance variable
+       * pointing to the original mutable string is not public, but we want
+       * to use it efficiently.
+       */
+      GSImmutableStringClass = NSClassFromString(@"GSImmutableString");
+      immutableIvar
+	= class_getInstanceVariable(GSImmutableStringClass, "_parent");
 
       /*
        * Cache some selectors and method implementations for
@@ -746,6 +759,26 @@ newUInline(unsigned length, NSZone *zone)
   return me;
 }
 
+@implementation NSString (RegressionTesting)
+/* This method is provided to enable regression tests to ensure they are
+ * using an object whose internal representation is wide (unicode) text,
+ * so that all the comparison operations between 8bit and 16bit strings
+ * can be tested.
+ */
+- (NSString*) _unicodeString
+{
+  GSUInlineString       *o;
+  unsigned              i = [self length];
+
+  o = [newUInline(i, [self zone]) autorelease];
+  while (i-- > 0)
+    {
+      o->_contents.u[i] = [self characterAtIndex: i];
+    }
+  return o;
+}
+@end
+
 /* Predeclare a few functions
  */
 static void GSStrWiden(GSStr s);
@@ -786,6 +819,10 @@ tinyEqualToString(uintptr_t s, NSString *aString)
   if ((NSString*)s == aString)
     {
       return YES;
+    }
+  if (nil == aString)
+    {
+      return NO;
     }
   
   l = (s >> TINY_STRING_LENGTH_SHIFT) & TINY_STRING_LENGTH_MASK;
@@ -1062,6 +1099,16 @@ tsbytes(uintptr_t s, char *buf)
   return NSMakeRange(anIndex, 1);
 }
 
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  return 0;	// Tiny string uses no heap
+}
+
+- (NSUInteger) sizeOfInstance
+{
+  return 0;	// Tiny string uses no heap
+}
+
 - (const char*) UTF8String
 {
   char  *buf = GSAutoreleasedBuffer(9);
@@ -1127,23 +1174,6 @@ tsbytes(uintptr_t s, char *buf)
   return 8;
 }
 
-/* This method is provided to enable regression tests to ensure they are
- * using an object whose internal representation is wide (unicode) text,
- * so that all the comparison operations between 8bit and 16bit strings
- * can be tested.
- */
-- (NSString*) _unicodeString
-{
-  GSUInlineString	*o;
-  unsigned		i = [self length];
-
-  o = [newUInline(i, [self zone]) autorelease];
-  while (i-- > 0)
-    {
-      o->_contents.u[i] = [self characterAtIndex: i];
-    }
-  return o;
-}
 @end
 
 /**
@@ -1569,42 +1599,6 @@ fixBOM(unsigned char **bytes, NSUInteger*length, BOOL *owned,
   return (id)me;
 }
 
-- (id) initWithCharacters: (const unichar*)chars
-		   length: (NSUInteger)length
-{
-  return [self initWithBytes: (const void*)chars
-		      length: length * sizeof(unichar)
-		    encoding: NSUnicodeStringEncoding];
-}
-
-- (id) initWithCharactersNoCopy: (unichar*)chars
-			 length: (NSUInteger)length
-		   freeWhenDone: (BOOL)flag
-{
-  return [self initWithBytesNoCopy: (void*)chars
-			    length: length * sizeof(unichar)
-			  encoding: NSUnicodeStringEncoding
-		      freeWhenDone: flag];
-}
-
-- (id) initWithCString: (const char*)chars
-		length: (NSUInteger)length
-{
-  return [self initWithBytes: (const void*)chars
-		      length: length
-		    encoding: externalEncoding];
-}
-
-- (id) initWithCStringNoCopy: (char*)chars
-		      length: (NSUInteger)length
-		freeWhenDone: (BOOL)flag
-{
-  return [self initWithBytesNoCopy: (void*)chars
-			    length: length
-			  encoding: externalEncoding
-		      freeWhenDone: flag];
-}
-
 - (id) initWithFormat: (NSString*)format
                locale: (NSDictionary*)locale
 	    arguments: (va_list)argList
@@ -1616,6 +1610,9 @@ fixBOM(unsigned char **bytes, NSUInteger*length, BOOL *owned,
   size_t	len;
   GSStr		me;
 
+  if (NULL == format)
+    [NSException raise: NSInvalidArgumentException
+      format: @"[GSPlaceholderString-initWithFormat:locale:arguments:]: NULL format"];
   /*
    * First we provide an array of unichar characters containing the
    * format string.  For performance reasons we try to use an on-stack
@@ -1690,7 +1687,7 @@ fixBOM(unsigned char **bytes, NSUInteger*length, BOOL *owned,
 
   if (string == nil)
     [NSException raise: NSInvalidArgumentException
-		format: @"-initWithString: given nil string"];
+		format: @"GSPlaceholderString-initWithString: given nil string"];
   if (NO == [string isKindOfClass: NSStringClass])	// may be proxy
     [NSException raise: NSInvalidArgumentException
 		format: @"-initWithString: given non-string object"];
@@ -1739,10 +1736,9 @@ fixBOM(unsigned char **bytes, NSUInteger*length, BOOL *owned,
   GSStr		me;
   uint8_t       c;
 
-  if (0 == bytes)
-    {
-      return (id)@"";
-    }
+  if (NULL == bytes)
+    [NSException raise: NSInvalidArgumentException
+		format: @"[GSPlaceholderString-initWithUTF8String:]: NULL cString"];
   /* Skip leading BOM
    */
   if (b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF)
@@ -2380,192 +2376,6 @@ cStringLength_u(GSStr self, NSStringEncoding enc)
 		      format: @"Can't get cStringLength from Unicode string."];
 	}
       return l;
-    }
-}
-
-static inline NSData*
-dataUsingEncoding_c(GSStr self, NSStringEncoding encoding, BOOL lossy)
-{
-  unsigned	len = self->_count;
-
-  if (len == 0)
-    {
-      return [NSDataClass data];
-    }
-
-  if ((encoding == internalEncoding)
-    || ((internalEncoding == NSASCIIStringEncoding)
-      && (encoding == NSUTF8StringEncoding || isByteEncoding(encoding))))
-    {
-      unsigned char *buff;
-
-      buff = (unsigned char*)NSZoneMalloc(NSDefaultMallocZone(), len);
-      memcpy(buff, self->_contents.c, len);
-      return [NSDataClass dataWithBytesNoCopy: buff length: len];
-    }
-  else if (encoding == NSUnicodeStringEncoding)
-    {
-      unsigned int	l = 0;
-      unichar		*r = 0;
-      unsigned int	options = GSUniBOM;
-
-      if (lossy == NO)
-	{
-	  options |= GSUniStrict;
-	}
-
-      if (GSToUnicode(&r, &l, self->_contents.c, self->_count, internalEncoding,
-	NSDefaultMallocZone(), options) == NO)
-	{
-	  return nil;
-	}
-      return [NSDataClass dataWithBytesNoCopy: r length: l * sizeof(unichar)];
-    }
-  else
-    {
-      unichar		*u = 0;
-      unsigned		l = 0;
-      unsigned char	*r = 0;
-      unsigned		s = 0;
-
-      if (GSToUnicode(&u, &l, self->_contents.c, self->_count, internalEncoding,
-	NSDefaultMallocZone(), 0) == NO)
-	{
-	  [NSException raise: NSCharacterConversionException
-		      format: @"Can't convert to Unicode string."];
-	}
-      if (GSFromUnicode(&r, &s, u, l, encoding, NSDefaultMallocZone(),
-	(lossy == NO) ? GSUniStrict : 0) == NO)
-	{
-	  NSZoneFree(NSDefaultMallocZone(), u);
-	  return nil;
-	}
-      NSZoneFree(NSDefaultMallocZone(), u);
-      return [NSDataClass dataWithBytesNoCopy: r length: s];
-    }
-}
-
-static inline NSData*
-dataUsingEncoding_u(GSStr self, NSStringEncoding encoding, BOOL lossy)
-{
-  unsigned	len = self->_count;
-
-  if (len == 0)
-    {
-      return [NSDataClass data];
-    }
-
-  if (encoding == NSUnicodeStringEncoding)
-    {
-      unichar	*buff;
-      unsigned	l;
-      unsigned	from = 0;
-      unsigned	to = 1;
-
-      if ((l = GSUnicode(self->_contents.u, len, 0, 0)) != len)
-        {
-	  if (lossy == NO)
-	    {
-	      return nil;
-	    }
-	}
-      buff = (unichar*)NSZoneMalloc(NSDefaultMallocZone(),
-	sizeof(unichar)*(len+1));
-      buff[0] = 0xFEFF;
-
-      while (len > 0)
-        {
-	  if (l > 0)
-	    {
-	      memcpy(buff + to, self->_contents.u + from, sizeof(unichar)*l);
-	      from += l;
-	      to += l;
-	      len -= l;
-	    }
-	  if (len > 0)
-	    {
-	      // A bad character in the string ... skip it.
-	      if (--len > 0)
-		{
-		  // Not at end ... try another batch.
-		  from++;
-		  l = GSUnicode(self->_contents.u + from, len, 0, 0);
-		}
-	    }
-	}
-      return [NSDataClass dataWithBytesNoCopy: buff
-				       length: sizeof(unichar)*to];
-    }
-  else
-    {
-      unsigned char	*r = 0;
-      unsigned int	l = 0;
-
-      if (GSFromUnicode(&r, &l, self->_contents.u, self->_count, encoding,
-	NSDefaultMallocZone(), (lossy == NO) ? GSUniStrict : 0) == NO)
-	{
-	  return nil;
-	}
-      return [NSDataClass dataWithBytesNoCopy: r length: l];
-    }
-}
-
-extern BOOL GSScanDouble(unichar*, unsigned, double*);
-
-static inline double
-doubleValue_c(GSStr self)
-{
-  const char	*ptr = (const char*)self->_contents.c;
-  const char	*end = ptr + self->_count;
-
-  while (ptr < end && isspace(*ptr))
-    {
-      ptr++;
-    }
-  if (ptr == end)
-    {
-      return 0.0;
-    }
-  else
-    {
-      unsigned	s = 99;
-      unichar	b[100];
-      unichar	*u = b;
-      double	d = 0.0;
-
-      /* use static buffer unless string is really long, in which case
-       * we use the stack to allocate a bigger one.
-       */
-      if (GSToUnicode(&u, &s, (const uint8_t*)ptr, end - ptr,
-	internalEncoding, NSDefaultMallocZone(), GSUniTerminate) == NO)
-	{
-	  return 0.0;
-	}
-      if (GSScanDouble(u, end - ptr, &d) == NO)
-	{
-	  d = 0.0;
-	}
-      if (u != b)
-	{
-	  NSZoneFree(NSDefaultMallocZone(), u);
-	}
-      return d;
-    }
-}
-
-static inline double
-doubleValue_u(GSStr self)
-{
-  if (self->_count == 0)
-    {
-      return 0.0;
-    }
-  else
-    {
-      double	d = 0.0;
-
-      GSScanDouble(self->_contents.u, self->_count, &d);
-      return d;
     }
 }
 
@@ -3242,8 +3052,8 @@ lossyCString_u(GSStr self)
   unsigned	l = 0;
   unsigned char	*r = 0;
 
-  GSFromUnicode(&r, &l, self->_contents.u, self->_count, externalEncoding,
-    NSDefaultMallocZone(), GSUniTemporary|GSUniTerminate);
+  (void)GSFromUnicode(&r, &l, self->_contents.u, self->_count,
+    externalEncoding, NSDefaultMallocZone(), GSUniTemporary|GSUniTerminate);
   return (const char*)r;
 }
 
@@ -3577,7 +3387,7 @@ substring_c(GSStr self, NSRange aRange)
     {
       return @"";
     }
-  o = (typeof(o))NSAllocateObject(GSCSubStringClass,
+  o = (__typeof__(o))NSAllocateObject(GSCSubStringClass,
     0, NSDefaultMallocZone());
   o->_contents.c = self->_contents.c + aRange.location;
   o->_count = aRange.length;
@@ -3596,7 +3406,7 @@ substring_u(GSStr self, NSRange aRange)
     {
       return @"";
     }
-  o = (typeof(o))NSAllocateObject(GSUnicodeSubStringClass,
+  o = (__typeof__(o))NSAllocateObject(GSUnicodeSubStringClass,
     0, NSDefaultMallocZone());
   o->_contents.u = self->_contents.u + aRange.location;
   o->_count = aRange.length;
@@ -3606,8 +3416,7 @@ substring_u(GSStr self, NSRange aRange)
   return AUTORELEASE((id)o);
 }
 
-/*
- * Function to examine the given string and see if it is one of our concrete
+/* Function to examine the given string and see if it is one of our concrete
  * string classes.  Converts the mutable string (self) from 8-bit to 16-bit
  * representation if necessary in order to contain the data in aString.
  * Returns a pointer to aStrings GSStr if aString is a concrete class
@@ -3620,10 +3429,19 @@ transmute(GSStr self, NSString *aString)
   BOOL	transmute = YES;
   Class	c = object_getClass(aString);	// NB aString must not be nil
 
+  /* If the string is an immutable proxy to a mutable string, we want to
+   * access the original (which we won't modify) for better performance.
+   */
+  if (c == GSImmutableStringClass)
+    {
+      aString = object_getIvar(aString, immutableIvar);
+      other = (GSStr)aString;
+      c = object_getClass(aString);
+    }
+
   if (self->_flags.wide == 1)
     {
-      /*
-       * This is already a unicode string, so we don't need to transmute,
+      /* This is already a unicode string, so we don't need to transmute,
        * but we still need to know if the other string is a unicode
        * string whose GSStr we can access directly.
        */
@@ -3636,22 +3454,19 @@ transmute(GSStr self, NSString *aString)
     }
   else
     {
-      /*
-       * This is a string held in the internal 8-bit encoding.
+      /* This is a string held in the internal 8-bit encoding.
        */
       if (GSObjCIsKindOf(c, GSCStringClass)
 	|| (c == GSMutableStringClass && other->_flags.wide == 0))
 	{
-	  /*
-	   * The other string is also held in the internal 8-bit encoding,
+	  /* The other string is also held in the internal 8-bit encoding,
 	   * so we don't need to transmute, and we can use its GSStr.
 	   */
 	  transmute = NO;
 	}
       else if ([aString canBeConvertedToEncoding: internalEncoding] == YES)
 	{
-	  /*
-	   * The other string can be converted to the internal 8-bit encoding,
+	  /* The other string can be converted to the internal 8-bit encoding,
 	   * so we don't need to transmute, but we can *not* use its GSStr.
 	   */
 	  transmute = NO;
@@ -3660,8 +3475,7 @@ transmute(GSStr self, NSString *aString)
       else if ((c == GSMutableStringClass && other->_flags.wide == 1)
 	|| GSObjCIsKindOf(c, GSUnicodeStringClass) == YES)
 	{
-	  /*
-	   * The other string can not be converted to the internal 8-bit
+	  /* The other string can not be converted to the internal 8-bit
 	   * encoding, so we need to transmute, and will then be able to
 	   * use its GSStr.
 	   */
@@ -3669,8 +3483,7 @@ transmute(GSStr self, NSString *aString)
 	}
       else
 	{
-	  /*
-	   * The other string can not be converted to the internal 8-bit
+	  /* The other string can not be converted to the internal 8-bit
 	   * character string, so we need to transmute, but even then we
 	   * will not be able to use the other strings GSStr because that
 	   * string is not a known GSString subclass.
@@ -3707,12 +3520,6 @@ transmute(GSStr self, NSString *aString)
 + (void) reinitialize
 {
   setup(YES);
-}
-
-- (id) copyWithZone: (NSZone*)z
-{
-  [self subclassResponsibility: _cmd];
-  return nil;
 }
 
 /*
@@ -3787,23 +3594,6 @@ transmute(GSStr self, NSString *aString)
   return self->_flags.hash;
 }
 
-- (id) initWithBytes: (const void*)chars
-	      length: (NSUInteger)length
-	    encoding: (NSStringEncoding)encoding
-{
-  if (length > 0)
-    {
-      void	*tmp = NSZoneMalloc([self zone], length);
-
-      memcpy(tmp, chars, length);
-      chars = tmp;
-    }
-  return [self initWithBytesNoCopy: (void*)chars
-			    length: length
-			  encoding: encoding
-		      freeWhenDone: YES];
-}
-
 - (id) initWithBytesNoCopy: (void*)chars
 		    length: (NSUInteger)length
 		  encoding: (NSStringEncoding)encoding
@@ -3816,57 +3606,6 @@ transmute(GSStr self, NSString *aString)
   [NSException raise: NSInternalInconsistencyException
 	      format: @"[%@-%@] called on string already initialised", c, s];
   return nil;
-}
-
-- (id) initWithCharacters: (const unichar*)chars
-		   length: (NSUInteger)length
-{
-  return [self initWithBytes: chars
-		      length: length * sizeof(unichar)
-		    encoding: NSUnicodeStringEncoding];
-}
-
-- (id) initWithCharactersNoCopy: (unichar*)chars
-			 length: (NSUInteger)length
-		   freeWhenDone: (BOOL)flag
-{
-  return [self initWithBytesNoCopy: chars
-			    length: length * sizeof(unichar)
-			  encoding: NSUnicodeStringEncoding
-		      freeWhenDone: flag];
-}
-
-- (id) initWithCString: (const char*)chars
-{
-  return [self initWithBytes: chars
-		      length: strlen(chars)
-		    encoding: externalEncoding];
-}
-
-- (id) initWithCString: (const char*)chars
-	      encoding: (NSStringEncoding)encoding
-{
-  return [self initWithBytes: chars
-		      length: strlen(chars)
-		    encoding: encoding];
-}
-
-- (id) initWithCString: (const char*)chars
-		length: (NSUInteger)length
-{
-  return [self initWithBytes: chars
-		      length: length
-		    encoding: externalEncoding];
-}
-
-- (id) initWithCStringNoCopy: (char*)chars
-		      length: (NSUInteger)length
-	        freeWhenDone: (BOOL)flag
-{
-  return [self initWithBytesNoCopy: chars
-			    length: length
-			  encoding: externalEncoding
-		      freeWhenDone: flag];
 }
 
 - (BOOL) makeImmutable
@@ -3889,23 +3628,6 @@ transmute(GSStr self, NSString *aString)
   return size;
 }
 
-/* This method is provided to enable regression tests to ensure they are
- * using an object whose internal representation is wide (unicode) text,
- * so that all the comparison operations between 8bit and 16bit strings
- * can be tested.
- */
-- (NSString*) _unicodeString
-{
-  GSUInlineString	*o;
-  unsigned		i = [self length];
-
-  o = [newUInline(i, [self zone]) autorelease];
-  while (i-- > 0)
-    {
-      o->_contents.u[i] = [self characterAtIndex: i];
-    }
-  return o;
-}
 @end
 
 
@@ -3981,17 +3703,6 @@ agree, create a new GSCInlineString otherwise.
   return cStringLength_c((GSStr)self, externalEncoding);
 }
 
-- (NSData*) dataUsingEncoding: (NSStringEncoding)encoding
-	 allowLossyConversion: (BOOL)flag
-{
-  return dataUsingEncoding_c((GSStr)self, encoding, flag);
-}
-
-- (double) doubleValue
-{
-  return doubleValue_c((GSStr)self);
-}
-
 - (void) encodeWithCoder: (NSCoder*)aCoder
 {
   if ([aCoder allowsKeyedCoding])
@@ -4014,11 +3725,6 @@ agree, create a new GSCInlineString otherwise.
 - (NSStringEncoding) fastestEncoding
 {
   return internalEncoding;
-}
-
-- (float) floatValue
-{
-  return doubleValue_c((GSStr)self);
 }
 
 - (void) getCharacters: (unichar*)buffer
@@ -4229,6 +3935,22 @@ agree, create a new GSCInlineString otherwise.
 
 
 @implementation	GSCInlineString
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  return 0;	// Inline string content uses no heap
+}
+- (NSUInteger) sizeOfInstance
+{
+  NSUInteger    size;
+
+#if     HAVE_MALLOC_USABLE_SIZE
+  size = malloc_usable_size((void*)self - sizeof(intptr_t));
+#else
+  size = class_getInstanceSize(GSCInlineStringClass);
+  size += _count;
+#endif
+  return size;
+}
 @end
 
 
@@ -4341,17 +4063,6 @@ agree, create a new GSCInlineString otherwise.
   return cStringLength_u((GSStr)self, externalEncoding);
 }
 
-- (NSData*) dataUsingEncoding: (NSStringEncoding)encoding
-	 allowLossyConversion: (BOOL)flag
-{
-  return dataUsingEncoding_u((GSStr)self, encoding, flag);
-}
-
-- (double) doubleValue
-{
-  return doubleValue_u((GSStr)self);
-}
-
 - (void) encodeWithCoder: (NSCoder*)aCoder
 {
   if ([aCoder allowsKeyedCoding])
@@ -4375,11 +4086,6 @@ agree, create a new GSCInlineString otherwise.
 - (NSStringEncoding) fastestEncoding
 {
   return NSUnicodeStringEncoding;
-}
-
-- (float) floatValue
-{
-  return doubleValue_u((GSStr)self);
 }
 
 - (void) getCharacters: (unichar*)buffer
@@ -4411,6 +4117,7 @@ agree, create a new GSCInlineString otherwise.
 {
   return getCStringE_u((GSStr)self, buffer, maxLength, encoding);
 }
+
 - (void) getCString: (char*)buffer
 	  maxLength: (NSUInteger)maxLength
 	      range: (NSRange)aRange
@@ -4617,15 +4324,6 @@ agree, create a new GSUInlineString otherwise.
     }
 }
 
-/* This method is provided to enable regression tests to ensure they are
- * using an object whose internal representation is wide (unicode) text,
- * so that all the comparison operations between 8bit and 16bit strings
- * can be tested.
- */
-- (NSString*) _unicodeString
-{
-  return self;
-}
 @end
 
 
@@ -4648,6 +4346,22 @@ agree, create a new GSUInlineString otherwise.
 
 
 @implementation	GSUInlineString
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
+{
+  return 0;	// Inline string content uses no heap
+}
+- (NSUInteger) sizeOfInstance
+{
+  NSUInteger    size;
+
+#if     HAVE_MALLOC_USABLE_SIZE
+  size = malloc_usable_size((void*)self - sizeof(intptr_t));
+#else
+  size = class_getInstanceSize(GSUInlineStringClass);
+  size += _count * sizeof(unichar);
+#endif
+  return size;
+}
 @end
 
 
@@ -4837,15 +4551,6 @@ agree, create a new GSUInlineString otherwise.
     return cStringLength_c((GSStr)self, externalEncoding);
 }
 
-- (NSData*) dataUsingEncoding: (NSStringEncoding)encoding
-	 allowLossyConversion: (BOOL)flag
-{
-  if (_flags.wide == 1)
-    return dataUsingEncoding_u((GSStr)self, encoding, flag);
-  else
-    return dataUsingEncoding_c((GSStr)self, encoding, flag);
-}
-
 - (void) dealloc
 {
   if (_contents.c != 0)
@@ -4865,14 +4570,6 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
     {
       fillHole((GSStr)self, range.location, range.length);
     }
-}
-
-- (double) doubleValue
-{
-  if (_flags.wide == 1)
-    return doubleValue_u((GSStr)self);
-  else
-    return doubleValue_c((GSStr)self);
 }
 
 - (void) encodeWithCoder: (NSCoder*)aCoder
@@ -4912,14 +4609,6 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
     return NSUnicodeStringEncoding;
   else
     return internalEncoding;
-}
-
-- (float) floatValue
-{
-  if (_flags.wide == 1)
-    return doubleValue_u((GSStr)self);
-  else
-    return doubleValue_c((GSStr)self);
 }
 
 - (void) getCharacters: (unichar*)buffer
@@ -5215,6 +4904,9 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
   unichar	*fmt = fbuf;
   size_t	len;
 
+  if (NULL == format)
+    [NSException raise: NSInvalidArgumentException
+      format: @"[GSMutableString-initWithFormat:locale:arguments:]: NULL format"];
   /*
    * First we provide an array of unichar characters containing the
    * format string.  For performance reasons we try to use an on-stack
@@ -5414,8 +5106,6 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
 - (void) replaceCharactersInRange: (NSRange)aRange
 		       withString: (NSString*)aString
 {
-  GSStr		other = 0;
-  int		offset;
   unsigned	length = 0;
 
   GS_RANGE_CHECK(aRange, _count);
@@ -5426,95 +5116,124 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
 	  [NSException raise: NSInvalidArgumentException
 		      format: @"replace characters with non-string"];
 	}
-      else
-	{
-	  length = [aString length];
-	}
+      length = [aString length];
     }
-  offset = length - aRange.length;
 
-  /*
-   * We must change into a unicode string (if necessary) *before*
-   * adjusting length and capacity, so that the transmute doesn't
-   * mess up due to any hole in the string etc.
+  /* Either we have data to copy into the string (possibly requiring
+   * length adjustment first), or we have no data but possibly a gap
+   * (the range specified) needing to be closed.
    */
   if (length > 0)
     {
+      int	offset = length - aRange.length;
+      GSStr	other = 0;
+
+      /* We must change into a unicode string (if necessary) *before*
+       * adjusting length and capacity, so that the transmute doesn't
+       * mess up due to any hole in the string etc.
+       */
       other = transmute((GSStr)self, aString);
-    }
 
-  if (offset < 0)
-    {
-      fillHole((GSStr)self, NSMaxRange(aRange) + offset, -offset);
-    }
-  else if (offset > 0)
-    {
-      makeHole((GSStr)self, NSMaxRange(aRange), (NSUInteger)offset);
-    }
-
-  if (length > 0)
-    {
-      if (_flags.wide == 1)
+      if (other == self)
 	{
-	  if (other == 0)
+	  if (aRange.length == _count)
 	    {
-	      /*
-	       * Not a cString class - use standard method to get characters.
+	      // NSLog(@"replace all characters with self ... nothing to do");
+	      return;
+	    }
+	  else if (aRange.length == 0
+	    && (aRange.location == _count || aRange.location == 0))
+	    {
+	      /* We are appending self at the end of self, or we are
+	       * prepending self at the start of the self.
+	       * Either way in effect we double the string, so we can
+	       * do an efficient size extension and copy.
 	       */
-	      [aString getCharacters: &_contents.u[aRange.location]];
+	      makeHole((GSStr)self, length, length);
+	      if (_flags.wide)
+		{
+		  memcpy(&_contents.u[length], _contents.u,
+		    length * sizeof(unichar));
+		}
+	      else
+		{
+		  memcpy(&_contents.c[length], _contents.c,
+		    length * sizeof(char));
+		}
+	      _flags.hash = 0;
+	      return;
+	    }
+	  // NSLog(@"replace characters in range with self");
+	}
+      if (0 == other || other == self)
+	{
+	  /* Either we couldn't get access to the internal of the string
+	   * to be copied, or we are copying from ourself and need to
+           * use an intermediate buffer to prevent overwriting.
+	   */
+	  if (_flags.wide)
+	    {
+	      GS_BEGINITEMBUF(buf, (length * sizeof(unichar)), unichar);
+
+	      [aString getCharacters: buf];
+	      if (offset < 0)
+		{
+		  fillHole((GSStr)self, NSMaxRange(aRange) + offset, -offset);
+		}
+	      else if (offset > 0)
+		{
+		  makeHole((GSStr)self, NSMaxRange(aRange), (NSUInteger)offset);
+		}
+	      memcpy(&_contents.u[aRange.location], buf,
+		length * sizeof(unichar));
+	      GS_ENDITEMBUF()
 	    }
 	  else
+	    {
+	      GS_BEGINITEMBUF(buf, ((length+1) * sizeof(char)), char);
+
+	      [aString getCString: buf
+			maxLength: length+1
+			 encoding: internalEncoding];
+	      if (offset < 0)
+		{
+		  fillHole((GSStr)self, NSMaxRange(aRange) + offset, -offset);
+		}
+	      else if (offset > 0)
+		{
+		  makeHole((GSStr)self, NSMaxRange(aRange), (NSUInteger)offset);
+		}
+	      memcpy(&_contents.c[aRange.location], buf,
+		length * sizeof(char));
+	      GS_ENDITEMBUF()
+	    }
+	}
+      else
+	{
+	  if (offset < 0)
+	    {
+	      fillHole((GSStr)self, NSMaxRange(aRange) + offset, -offset);
+	    }
+	  else if (offset > 0)
+	    {
+	      makeHole((GSStr)self, NSMaxRange(aRange), (NSUInteger)offset);
+	    }
+	  if (_flags.wide == 1)
 	    {
 	      memcpy(&_contents.u[aRange.location], other->_contents.u,
 		length * sizeof(unichar));
 	    }
-	}
-      else
-	{
-	  if (other == 0)
-	    {
-	      /*
-	       * Since getCString appends a '\0' terminator, we must handle
-	       * that problem in copying data into our buffer.  Either by
-	       * saving and restoring the character which would be
-	       * overwritten by the nul, or by getting a character less,
-	       * and fetching the last character separately.
-	       */
-	      if (aRange.location + length  < _count)
-		{
-		  unsigned char	tmp = _contents.c[aRange.location + length];
-
-		  [aString getCString: (char*)&_contents.c[aRange.location]
-			    maxLength: length+1
-			     encoding: internalEncoding];
-		  _contents.c[aRange.location + length] = tmp;
-		}
-	      else
-		{
-		  unsigned int	l = length - 1;
-		  unsigned int  size = 1;
-		  unichar	u;
-		  unsigned char *dst = &_contents.c[aRange.location + l];
-
-		  if (l > 0)
-		    {
-		      [aString getCString: (char*)&_contents.c[aRange.location]
-				maxLength: l+1
-				 encoding: internalEncoding];
-		    }
-		  u = [aString characterAtIndex: l];
-		  GSFromUnicode(&dst, &size, &u, 1,
-		    internalEncoding, 0, GSUniStrict);
-		}
-	    }
 	  else
 	    {
-	      /*
-	       * Simply copy cString data from other string into self.
-	       */
-	      memcpy(&_contents.c[aRange.location], other->_contents.c, length);
+	      memcpy(&_contents.c[aRange.location], other->_contents.c,
+		length * sizeof(char));
 	    }
 	}
+      _flags.hash = 0;
+    }
+  else if (aRange.length > 0)
+    {
+      fillHole((GSStr)self, aRange.location, aRange.length);
       _flags.hash = 0;
     }
 }
@@ -5732,6 +5451,7 @@ NSAssert(_flags.owned == 1 && _zone != 0, NSInternalInconsistencyException);
 
 
 
+#ifndef GNUSTEP_NEW_STRING_ABI
 static BOOL
 literalIsEqual(NXConstantString *self, id anObject)
 {
@@ -5817,6 +5537,14 @@ literalIsEqual(NXConstantString *self, id anObject)
     }
   return NO;
 }
+#endif
+
+#ifdef GNUSTEP_NEW_STRING_ABI
+#  define CONSTANT_STRING_ENCODING() (flags & 3)
+#  define CONSTANT_STRING_HAS_HASH() ((flags & (1<<16)) == (1<<16))
+#  define CONSTANT_STRING_SET_HAS_HASH() do { flags |= (1<<16); } while(0)
+#endif
+
 
 #ifdef GNUSTEP_NEW_STRING_ABI
 #  define CONSTANT_STRING_ENCODING() (flags & 3)
@@ -5959,11 +5687,6 @@ literalIsEqual(NXConstantString *self, id anObject)
   BOOL	        ascii;
   BOOL	        latin1;
   unsigned	length;
-
-  if (0 == nxcslen)
-    {
-      return [NSDataClass data];
-    }
 
   /* Check what is actually in this string ... if it's corrupt an exception
    * is raised.
@@ -6447,23 +6170,16 @@ literalIsEqual(NXConstantString *self, id anObject)
 #endif
 }
 
-/* This method is provided to enable regression tests to ensure they are
- * using an object whose internal representation is wide (unicode) text,
- * so that all the comparison operations between 8bit and 16bit strings
- * can be tested.
- */
-- (NSString*) _unicodeString
+- (NSUInteger) sizeOfContentExcluding: (NSHashTable*)exclude
 {
-  GSUInlineString	*o;
-  unsigned		i = [self length];
-
-  o = [newUInline(i, [self zone]) autorelease];
-  while (i-- > 0)
-    {
-      o->_contents.u[i] = [self characterAtIndex: i];
-    }
-  return o;
+  return 0;	// Constant string uses no heap
 }
+
+- (NSUInteger) sizeOfInstance
+{
+  return 0;	// Constant string uses no heap
+}
+
 @end
 
 

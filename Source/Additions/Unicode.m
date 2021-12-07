@@ -55,6 +55,8 @@
 #endif
 #if     defined(HAVE_UNICODE_UCNV_H)
 #include <unicode/ucnv.h>
+#elif   defined(HAVE_ICU_H)
+#include <icu.h>
 #endif
 
 
@@ -137,7 +139,7 @@ internal_unicode_enc(void)
 #define UNICODE_UTF32 ""
 #endif
 
-static pthread_mutex_t local_lock = PTHREAD_MUTEX_INITIALIZER;
+static gs_mutex_t local_lock = GS_MUTEX_INIT_STATIC;
 
 typedef	unsigned char	unc;
 static NSStringEncoding	defEnc = GSUndefinedEncoding;
@@ -279,7 +281,7 @@ static void GSSetupEncodingTable(void)
 {
   if (encodingTable == 0)
     {
-      (void)pthread_mutex_lock(&local_lock);
+      GS_MUTEX_LOCK(local_lock);
       if (encodingTable == 0)
 	{
 	  static struct _strenc_	**encTable = 0;
@@ -338,8 +340,8 @@ static void GSSetupEncodingTable(void)
 		   */
 		  l = strlen(entry->iconv);
 		  lossy = malloc(l + 11);
-		  strncpy(lossy, entry->iconv, l);
-		  strncpy(lossy + l, "//TRANSLIT", 11);
+		  memcpy(lossy, entry->iconv, l);
+		  memcpy(lossy + l, "//TRANSLIT", 11);
 		  c = iconv_open(lossy, UNICODE_ENC);
 		  if (c == (iconv_t)-1)
 		    {
@@ -355,7 +357,7 @@ static void GSSetupEncodingTable(void)
 	    }
 	  encodingTable = encTable;
 	}
-      (void)pthread_mutex_unlock(&local_lock);
+      GS_MUTEX_UNLOCK(local_lock);
     }
 }
 
@@ -364,10 +366,10 @@ EntryForEncoding(NSStringEncoding enc)
 {
   struct _strenc_ *entry = 0;
 
-  if (enc > 0)
+  if (enc != 0)
     {
       GSSetupEncodingTable();
-      if (enc <= encTableSize)
+      if (enc > 0 && enc <= encTableSize)
 	{
 	  entry = encodingTable[enc];
 	}
@@ -815,6 +817,61 @@ else \
     bsize = grow / sizeof(unichar); \
   }
 
+#define UTF8DECODE      1
+
+#if     defined(UTF8DECODE)
+/* This next data (utf8d) and function (decode()) copyright ...
+Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+#define UTF8_ACCEPT 0
+#define UTF8_REJECT 12
+
+static const uint8_t utf8d[] = {
+  // The first part of the table maps bytes to character classes that
+  // to reduce the size of the transition table and create bitmasks.
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,  9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,
+   7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,  7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+   8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,  2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+  10,3,3,3,3,3,3,3,3,3,3,3,3,4,3,3, 11,6,6,6,5,8,8,8,8,8,8,8,8,8,8,8,
+
+  // The second part is a transition table that maps a combination
+  // of a state of the automaton and a character class to a state.
+   0,12,24,36,60,96,84,12,12,12,48,72, 12,12,12,12,12,12,12,12,12,12,12,12,
+  12, 0,12,12,12,12,12, 0,12, 0,12,12, 12,24,12,12,12,12,12,24,12,24,12,12,
+  12,12,12,12,12,12,12,24,12,12,12,12, 12,24,12,12,12,12,12,12,12,24,12,12,
+  12,12,12,12,12,12,12,36,12,36,12,12, 12,36,12,12,12,12,12,36,12,36,12,12,
+  12,36,12,12,12,12,12,12,12,12,12,12, 
+};
+
+static uint32_t inline
+decode(uint32_t* state, uint32_t* codep, uint32_t byte)
+{
+  uint32_t type = utf8d[byte];
+
+  *codep = (*state != UTF8_ACCEPT)
+    ?  (byte & 0x3fu) | (*codep << 6)
+    : (0xff >> type) & (byte);
+
+  *state = utf8d[256 + *state + type];
+  return *state;
+}
+
+/* End of separately copyrighted section.
+ */
+#endif
+
+
 /**
  * Function to convert from 8-bit data to 16-bit unicode characters.
  * <p>The dst argument is a pointer to a pointer to a buffer in which the
@@ -917,14 +974,41 @@ GSToUnicode(unichar **dst, unsigned int *size, const unsigned char *src,
     {
       case NSUTF8StringEncoding:
 	{
+          uint32_t  u = 0;
+#if     defined(UTF8DECODE)
+          uint32_t      state = 0;
+#endif
 	  while (spos < slen)
 	    {
-	      unsigned char	c = src[spos];
-	      unsigned long	u = c;
 
+#if     defined(UTF8DECODE)
+              if (decode(&state, &u, src[spos++]))
+                {
+                  continue;
+                }
+#else
+	      uint8_t   c = src[spos];
+
+	      u = c;
 	      if (c > 0x7f)
                 {
                   int i, sle = 0;
+
+		  /* legal first byte of a multibyte character?
+                   */
+                  if (c <= 0xc1 || c >= 0xf5)
+                    {
+                      /* (0x7f <= c < 0xc0) means this is a continuation
+                       * of a multibyte character without the first byte.
+                       *
+                       * (0xc0 == c || 0xc1 == c) are always illegal because
+                       *
+                       * (c >= 0xf5) would be for a multibyte character
+                       * outside the unicode range.
+                       */
+	              result = NO;
+		      goto done;
+                    }
 
 		  /* calculated the expected sequence length */
                   while (c & 0x80)
@@ -933,18 +1017,11 @@ GSToUnicode(unichar **dst, unsigned int *size, const unsigned char *src,
                       sle++;
                     }
 
-		  /* legal ? */
-		  if ((sle < 2) || (sle > 6))
-                    {
-	               result = NO;
-		       goto done;
-	            }
-
 		  /* do we have enough bytes ? */
 		  if ((spos + sle) > slen)
                     {
-	               result = NO;
-		       goto done;
+	              result = NO;
+		      goto done;
 	            }
 
 		  /* get the codepoint */
@@ -962,16 +1039,46 @@ GSToUnicode(unichar **dst, unsigned int *size, const unsigned char *src,
 	          u = u & ~(0xffffffff << ((5 * sle) + 1));
 		  spos += sle;
 
+                  /* How many bytes needed to encode this character?
+                   */
+                  if (u < 0x80)
+                    {
+                      i = 1;
+                    }
+                  else if (u < 0x800)
+                    {
+                      i = 2;
+                    }
+                  else if (u < 0x10000)
+                    {
+                      i = 3;
+                    }
+                  else 
+                    {
+                      i = 4;
+                    }
+                  if (0 && i < sle)
+                    {
+		      result = NO;	// Character was not minimally encoded.
+		      goto done;
+                    }
+
 		  if ((u >= 0xd800) && (u <= 0xdfff))
 		    {
 		      result = NO;	// Unmatched half of surrogate pair.
 		      goto done;
 		    }
+                  if (u > 0x10ffff)
+                    {
+		      result = NO;	// Outside the unicode range.
+		      goto done;
+                    }
                 }
               else
 		{
 		  spos++;
 		}
+#endif
 
 	      /*
 	       * Add codepoint as either a single unichar for BMP
@@ -1000,8 +1107,16 @@ GSToUnicode(unichar **dst, unsigned int *size, const unsigned char *src,
 		      GROW();
 		    }
 	          ptr[dpos++] = ul + 0xdc00;
+//                  NSLog(@"Adding uh %d ul %d", uh + 0xd800, ul + 0xdc00);
 	        }
 	    }
+#if     defined(UTF8DECODE)
+          if (state != UTF8_ACCEPT)
+            {
+              result = NO;	// Parse failure
+              goto done;
+            }
+#endif
 	}
 	break;
 
@@ -1823,7 +1938,7 @@ GSFromUnicode(unsigned char **dst, unsigned int *size, const unichar *src,
 		      u2 = src[spos++];
 		      u2 = (((u2 & 0xff00) >> 8) + ((u2 & 0x00ff) << 8));
 
-		      if ((u2 < 0xdc00) && (u2 > 0xdfff))
+		      if ((u2 < 0xdc00) || (u2 > 0xdfff))
 			{
 			  spos--;
 			  if (strict)
@@ -1941,7 +2056,7 @@ GSFromUnicode(unsigned char **dst, unsigned int *size, const unichar *src,
 		      /* get second unichar */
 		      u2 = src[spos++];
 
-		      if ((u2 < 0xdc00) && (u2 > 0xdfff))
+		      if ((u2 < 0xdc00) || (u2 > 0xdfff))
 			{
 			  spos--;
 			  if (strict)
@@ -2129,12 +2244,22 @@ GSFromUnicode(unsigned char **dst, unsigned int *size, const unichar *src,
                         }
                       else
                         {
-                          dpos += sprintf((char*)&ptr[dpos], "\\%03o", u);
+                          char octchars[] = "01234567";
+                          ptr[dpos++] = '\\';
+                          ptr[dpos++] = octchars[(u >> 6) & 7];
+                          ptr[dpos++] = octchars[(u >> 3) & 7];
+                          ptr[dpos++] = octchars[u & 7];
                         }
                     }
                   else
                     {
-                      dpos += sprintf((char*)&ptr[dpos], "\\u%04x", u);
+                      char hexchars[] = "0123456789abcdef";
+                      ptr[dpos++] = '\\';
+                      ptr[dpos++] = 'u';
+                      ptr[dpos++] = hexchars[(u >> 12) & 0xF];
+                      ptr[dpos++] = hexchars[(u >> 8) & 0xF];
+                      ptr[dpos++] = hexchars[(u >> 4) & 0xF];
+                      ptr[dpos++] = hexchars[u & 0xF];
                     }
                 }
             }
@@ -2612,7 +2737,7 @@ GSPrivateAvailableEncodings()
   if (_availableEncodings == 0)
     {
       GSSetupEncodingTable();
-      (void)pthread_mutex_lock(&local_lock);
+      GS_MUTEX_LOCK(local_lock);
       if (_availableEncodings == 0)
 	{
 	  NSStringEncoding	*encodings;
@@ -2638,7 +2763,7 @@ GSPrivateAvailableEncodings()
 	  encodings[pos] = 0;
 	  _availableEncodings = encodings;
 	}
-      (void)pthread_mutex_unlock(&local_lock);
+      GS_MUTEX_UNLOCK(local_lock);
     }
   return _availableEncodings;
 }
@@ -2752,7 +2877,12 @@ GSPrivateCStringEncoding(const char *encoding)
 
   if (enc == GSUndefinedEncoding)
     {
+#ifdef __ANDROID__
+      // Android uses UTF-8 as default encoding (e.g. for file paths)
+      enc = NSUTF8StringEncoding;
+#else
       enc = NSISOLatin1StringEncoding;
+#endif
     }
   else if (GSPrivateIsEncodingSupported(enc) == NO)
     {
@@ -2775,10 +2905,10 @@ GSPrivateDefaultCStringEncoding()
 
       GSSetupEncodingTable();
 
-      (void)pthread_mutex_lock(&local_lock);
+      GS_MUTEX_LOCK(local_lock);
       if (defEnc != GSUndefinedEncoding)
 	{
-	  (void)pthread_mutex_unlock(&local_lock);
+	  GS_MUTEX_UNLOCK(local_lock);
 	  return defEnc;
 	}
 
@@ -2822,7 +2952,7 @@ GSPrivateDefaultCStringEncoding()
 	  defEnc = NSISOLatin1StringEncoding;
 	}
 
-      (void)pthread_mutex_unlock(&local_lock);
+      GS_MUTEX_UNLOCK(local_lock);
     }
   return defEnc;
 }

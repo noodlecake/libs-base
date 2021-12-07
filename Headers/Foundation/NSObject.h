@@ -14,12 +14,12 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
    
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Boston, MA 02110 USA.
 
    AutogsdocSource: NSObject.m
    */ 
@@ -288,7 +288,8 @@ extern "C" {
 @end
 
 
-GS_ROOT_CLASS @interface NSObject <NSObject>
+GS_EXPORT_CLASS GS_ROOT_CLASS
+@interface NSObject <NSObject>
 {
  /**
   * Points to instance's class.  Used by runtime to access method
@@ -463,8 +464,6 @@ NSDeallocateObject(id anObject);
  * memory allocated from zone.  The allocated memory will be extraBytes
  * longer than that necessary to actually store the instance variables
  * of the copied object.<br />
- * This is used by the NSObject implementation of the
- * [(NSCopying)-copyWithZone:] method.
  */
 GS_EXPORT NSObject *
 NSCopyObject(NSObject *anObject, NSUInteger extraBytes, NSZone *zone);

@@ -19,12 +19,12 @@
    This library is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+   Lesser General Public License for more details.
 
    You should have received a copy of the GNU Lesser General Public
    License along with this library; if not, write to the Free
    Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02111 USA.
+   Boston, MA 02110 USA.
 
 
    <title>NSBundle class reference</title>
@@ -56,11 +56,6 @@
 #import "GNUstepBase/NSTask+GNUstepBase.h"
 
 #import "GSPrivate.h"
-
-/* Constants */
-NSString * const NSBundleDidLoadNotification = @"NSBundleDidLoadNotification";
-NSString * const NSShowNonLocalizedStrings = @"NSShowNonLocalizedStrings";
-NSString * const NSLoadedClasses = @"NSLoadedClasses";
 
 static NSFileManager	*
 manager()
@@ -241,6 +236,11 @@ static NSString	*library_combo =
   nil;
 #endif
 
+#ifdef __ANDROID__
+static jobject _jassetManager = NULL;
+static AAssetManager *_assetManager = NULL;
+#endif
+
 
 /*
  * Try to find the absolute path of an executable.
@@ -264,17 +264,17 @@ AbsolutePathOfExecutable(NSString *path, BOOL atLaunch)
       NSString		*result = nil;
 
       env = [[NSProcessInfo processInfo] environment];
-      pathlist = [env objectForKey:@"PATH"];
+      pathlist = [env objectForKey: @"PATH"];
 
     /* Windows 2000 and perhaps others have "Path" not "PATH" */
       if (pathlist == nil)
 	{
-	  pathlist = [env objectForKey:@"Path"];
+	  pathlist = [env objectForKey: @"Path"];
 	}
 #if defined(_WIN32)
-      patharr = [pathlist componentsSeparatedByString:@";"];
+      patharr = [pathlist componentsSeparatedByString: @";"];
 #else
-      patharr = [pathlist componentsSeparatedByString:@":"];
+      patharr = [pathlist componentsSeparatedByString: @":"];
 #endif
       /* Add . if not already in path */
       if ([patharr indexOfObject: @"."] == NSNotFound)
@@ -285,7 +285,7 @@ AbsolutePathOfExecutable(NSString *path, BOOL atLaunch)
       patharr = [patharr objectEnumerator];
       while (nil != (prefix = [patharr nextObject]))
 	{
-	  if ([prefix isEqual:@"."])
+	  if ([prefix isEqual: @"."])
 	    {
 	      if (atLaunch == YES)
 		{
@@ -546,13 +546,14 @@ _find_framework(NSString *name)
 {
   NSArray	*paths;
   NSFileManager *file_mgr = manager();
-  NSString	*file_name = [name stringByAppendingPathExtension:@"framework"];
+  NSString	*file_name;
   NSString	*file_path;
   NSString	*path;
   NSEnumerator	*enumerator;
 
   NSCParameterAssert(name != nil);
 
+  file_name = [name stringByAppendingPathExtension: @"framework"];
   paths = NSSearchPathForDirectoriesInDomains(GSFrameworksDirectory,
             NSAllDomainsMask,YES);
 
@@ -727,7 +728,7 @@ _find_main_bundle_for_tool(NSString *toolName)
        * really universal way of getting the framework path ... we can
        * locate the framework no matter where it is on disk!
        */
-      bundlePath = GSPrivateSymbolPath (frameworkClass, NULL);
+      bundlePath = GSPrivateSymbolPath(frameworkClass);
 
       if ([bundlePath isEqualToString: GSPrivateExecutablePath()])
 	{
@@ -925,9 +926,9 @@ _find_main_bundle_for_tool(NSString *toolName)
 	      for (j = 0; j < [l count]; j++)
 		{
 		  if ([[l objectAtIndex: j] pointerValue]
-		     == [[b objectAtIndex:i] pointerValue])
+		     == [[b objectAtIndex: i] pointerValue])
 		    {
-		      [l removeObjectAtIndex:j];
+		      [l removeObjectAtIndex: j];
 		    }
 		}
 	    }
@@ -1068,7 +1069,6 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
 {
   if (self == [NSBundle class])
     {
-      extern const char	*GSPathHandling(const char *);
       NSAutoreleasePool *pool = [NSAutoreleasePool new];
       NSString          *file;
       const char	*mode;
@@ -1081,7 +1081,7 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
       _emptyTable = [NSDictionary new];
 
       /* Create basic mapping dictionaries for bootstrapping and
-       * for use if the full ductionaries can't be loaded from the
+       * for use if the full dictionaries can't be loaded from the
        * gnustep-base library resource bundle.
        */
       langAliases = [[NSDictionary alloc] initWithObjectsAndKeys:
@@ -1385,6 +1385,7 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
 	  isNonInstalledTool = YES;
 	}
 
+#ifndef __ANDROID__ /* don't check suffix on Android's fake executable path */
       if (isApplication == YES)
 	{
 	  s = [path lastPathComponent];
@@ -1425,6 +1426,7 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
 		}
 	    }
 	}
+#endif /* !__ANDROID__ */
 
       if (isApplication == NO)
 	{
@@ -1516,7 +1518,7 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
 
   [load_lock lock];
   /* Try lookup ... if not found, make sure that all loaded bundles have
-   * class->bundle mapp entries set up and check again.
+   * class->bundle map entries set up and check again.
    */
   bundle = (NSBundle *)NSMapGet(_byClass, aClass);
   if ((id)bundle == (id)[NSNull null])
@@ -1564,8 +1566,12 @@ _bundle_load_callback(Class theClass, struct objc_category *theCategory)
 	   * convert it to the format for a library name as used for
 	   * obtaining a library resource bundle.
 	   */
+<<<<<<< HEAD
 	  lib = GSPrivateSymbolPath (aClass, NULL);
 
+=======
+	  lib = GSPrivateSymbolPath(aClass);
+>>>>>>> master
 	  if ([lib isEqual: GSPrivateExecutablePath()] == YES)
 	    {
 	      lib = nil;	// In program, not library.
@@ -1809,9 +1815,6 @@ IF_NO_GC(
     {
       NSString		*identifier = [self bundleIdentifier];
       NSUInteger        count;
-      NSUInteger	plen = [_path length];
-      NSEnumerator	*enumerator;
-      NSString		*path;
 
       [load_lock lock];
       if (_bundles != nil)
@@ -1839,38 +1842,7 @@ IF_NO_GC(
 
       /* Clean up path cache for this bundle.
        */
-      [pathCacheLock lock];
-      enumerator = [pathCache keyEnumerator];
-      while (nil != (path = [enumerator nextObject]))
-	{
-	  if (YES == [path hasPrefix: _path])
-	    {
-	      if ([path length] == plen)
-		{
-		  /* Remove the bundle directory path from the cache.
-		   */
-		  [pathCache removeObjectForKey: path];
-		}
-	      else
-		{
-		  unichar	c = [path characterAtIndex: plen];
-
-		  /* if the directory is inside the bundle, remove from cache.
-		   */
-		  if ('/' == c)
-		    {
-		      [pathCache removeObjectForKey: path];
-		    }
-#if defined(_WIN32)
-		  else if ('\\' == c)
-		    {
-		      [pathCache removeObjectForKey: path];
-		    }
-#endif
-		}
-	    }
-	}
-      [pathCacheLock unlock];
+      [self cleanPathCache];
       RELEASE(_path);
     }
   TEST_RELEASE(_frameworkVersion);
@@ -2148,6 +2120,59 @@ IF_NO_GC(
 	  addBundlePath(array, contents, primary, subPath, language);
 	}
     }
+  
+#ifdef __ANDROID__
+  /* Android: check subdir and localization directly, as AAssetDir and thereby
+   * NSDirectoryEnumerator doesn't list directories
+   */
+  NSString *originalPrimary = primary;
+  if (subPath)
+    {
+      primary = [originalPrimary stringByAppendingPathComponent: subPath];
+      contents = bundle_directory_readable(primary);
+      addBundlePath(array, contents, primary, nil, nil);
+      
+      if (localization)
+	{
+	  primary = [primary stringByAppendingPathComponent:
+	    [localization stringByAppendingPathExtension: @"lproj"]];
+	  contents = bundle_directory_readable(primary);
+	  addBundlePath(array, contents, primary, nil, nil);
+	}
+      else
+	{
+	  NSString *subPathPrimary = primary;
+
+	  enumerate = [languages objectEnumerator];
+	  while ((language = [enumerate nextObject]))
+	    {
+	      primary = [subPathPrimary stringByAppendingPathComponent:
+		[language stringByAppendingPathExtension: @"lproj"]];
+	      contents = bundle_directory_readable(primary);
+	      addBundlePath(array, contents, primary, nil, nil);
+	    }
+	}
+    }
+  if (localization)
+    {
+      primary = [originalPrimary stringByAppendingPathComponent:
+	[localization stringByAppendingPathExtension: @"lproj"]];
+      contents = bundle_directory_readable(primary);
+      addBundlePath(array, contents, primary, nil, nil);
+    }
+  else
+    {
+      enumerate = [languages objectEnumerator];
+      while ((language = [enumerate nextObject]))
+	{
+	  primary = [originalPrimary stringByAppendingPathComponent:
+	    [language stringByAppendingPathExtension: @"lproj"]];
+	  contents = bundle_directory_readable(primary);
+	  addBundlePath(array, contents, primary, nil, nil);
+	}
+    }
+#endif /* __ANDROID__ */
+  
   primary = rootPath;
   contents = bundle_directory_readable(primary);
   addBundlePath(array, contents, primary, subPath, nil);
@@ -2205,6 +2230,24 @@ IF_NO_GC(
 	}
     }
 
+#ifdef __ANDROID__
+  /* Android: check for directory resources by passing file path as subpath,
+   * as AAssetDir and thereby NSDirectoryEnumerator doesn't list directories
+   */
+  subPath = subPath ? [subPath stringByAppendingPathComponent: file] : file;
+  pathlist = [[self _bundleResourcePathsWithRootPath: rootPath
+    subPath: subPath localization: nil] objectEnumerator];
+  while ((path = [pathlist nextObject]) != nil)
+    {
+      NSString *lastPathComponent = [path lastPathComponent];
+      if ([lastPathComponent isEqualToString:file]
+        && [mgr isReadableFileAtPath: path])
+        {
+          return path;
+        }
+    }
+#endif /* __ANDROID__ */
+
   return nil;
 }
 
@@ -2258,7 +2301,7 @@ IF_NO_GC(
 
 #if !defined(_WIN32)
   if (_frameworkVersion)
-    rootPath = [NSString stringWithFormat:@"%@/Versions/%@", [self bundlePath],
+    rootPath = [NSString stringWithFormat: @"%@/Versions/%@", [self bundlePath],
       _frameworkVersion];
   else
 #endif
@@ -2529,6 +2572,27 @@ IF_NO_GC(
       locale = [[locale lastPathComponent] stringByDeletingPathExtension];
       [array addObject: locale];
     }
+
+#ifdef __ANDROID__
+    // Android: Check known languages for localizations directly, as AAssetDir
+    // and thereby NSDirectoryEnumerator doesn't list directories and the above
+    // call to list lproj resources will therefore come up empty.
+    NSArray *languages = [[NSUserDefaults standardUserDefaults]
+      stringArrayForKey: @"NSLanguages"];
+    
+    for (locale in languages)
+      {
+	NSString *path = [self pathForResource: @"Localizable"
+					ofType: @"strings"
+				   inDirectory: nil
+			       forLocalization: locale];
+	if (path)
+	  {
+	    [array addObject: locale];
+	  }
+      }
+#endif /* __ANDROID__ */
+
   return GS_IMMUTABLE(array);
 }
 
@@ -2711,7 +2775,7 @@ IF_NO_GC(
     }
   if (self->_bundleType == NSBUNDLE_LIBRARY)
     {
-      return GSPrivateSymbolPath ([self principalClass], NULL);
+      return GSPrivateSymbolPath([self principalClass]);
     }
   object = [[self infoDictionary] objectForKey: @"NSExecutable"];
   if (object == nil || [object length] == 0)
@@ -2736,7 +2800,7 @@ IF_NO_GC(
 				 withString: @"_1"];
 
 #if !defined(_WIN32)
-      path = [_path stringByAppendingPathComponent:@"Versions/Current"];
+      path = [_path stringByAppendingPathComponent: @"Versions/Current"];
 #else
       path = _path;
 #endif
@@ -2770,7 +2834,7 @@ IF_NO_GC(
     {
 #if !defined(_WIN32)
       return [_path stringByAppendingPathComponent:
-                      [NSString stringWithFormat:@"Versions/%@/%@",
+                      [NSString stringWithFormat: @"Versions/%@/%@",
                       version, executableName]];
 #else
       return [_path stringByAppendingPathComponent: executableName];
@@ -2799,7 +2863,7 @@ IF_NO_GC(
     {
 #if !defined(_WIN32)
       return [_path stringByAppendingPathComponent:
-		      [NSString stringWithFormat:@"Versions/%@/Resources",
+		      [NSString stringWithFormat: @"Versions/%@/Resources",
 				version]];
 #else
       /* No Versions (that require symlinks) on mswindows */
@@ -2856,7 +2920,7 @@ IF_NO_GC(
     {
 #if !defined(_WIN32)
       return [_path stringByAppendingPathComponent:
-                      [NSString stringWithFormat:@"Versions/%@/PlugIns",
+                      [NSString stringWithFormat: @"Versions/%@/PlugIns",
                       version]];
 #else
       return [_path stringByAppendingPathComponent: @"PlugIns"];
@@ -2884,8 +2948,8 @@ IF_NO_GC(
     {
 #if !defined(_WIN32)
       return [_path stringByAppendingPathComponent:
-                      [NSString stringWithFormat:@"Versions/%@/PrivateFrameworks",
-                      version]];
+	[NSString stringWithFormat: @"Versions/%@/PrivateFrameworks",
+	version]];
 #else
       return [_path stringByAppendingPathComponent: @"PrivateFrameworks"];
 #endif
@@ -3205,6 +3269,143 @@ IF_NO_GC(
 
   return path;
 }
+
+- (void)cleanPathCache
+{
+  NSUInteger	plen = [_path length];
+  NSEnumerator	*enumerator;
+  NSString		*path;
+  
+  [pathCacheLock lock];
+  enumerator = [pathCache keyEnumerator];
+  while (nil != (path = [enumerator nextObject]))
+  {
+    if (YES == [path hasPrefix: _path])
+      {
+        if ([path length] == plen)
+        {
+          /* Remove the bundle directory path from the cache.
+           */
+          [pathCache removeObjectForKey: path];
+        }
+        else
+        {
+          unichar	c = [path characterAtIndex: plen];
+
+          /* if the directory is inside the bundle, remove from cache.
+           */
+          if ('/' == c)
+          {
+            [pathCache removeObjectForKey: path];
+          }
+#if defined(_WIN32)
+          else if ('\\' == c)
+          {
+            [pathCache removeObjectForKey: path];
+          }
+#endif
+        }
+      }
+  }
+  [pathCacheLock unlock];
+  
+  /* also destroy cached variables depending on bundle paths */
+  DESTROY(_infoDict);
+  DESTROY(_localizations);
+}
+
+#ifdef __ANDROID__
+
++ (AAssetManager *)assetManager
+{
+  return _assetManager;
+}
+
++ (void) setJavaAssetManager: (jobject)jassetManager withJNIEnv: (JNIEnv *)env
+{ 
+  /* create global reference to Java asset manager to prevent garbage
+   * collection
+   */
+  _jassetManager = (*env)->NewGlobalRef(env, jassetManager);
+  
+  // get native asset manager (may be shared across multiple threads)
+  _assetManager = AAssetManager_fromJava(env, _jassetManager);
+
+  // clean main bundle path cache in case it was accessed before
+  [_mainBundle cleanPathCache];
+}
+
++ (AAsset *) assetForPath: (NSString *)path
+{
+  return [self assetForPath: path withMode: AASSET_MODE_UNKNOWN];
+}
+
++ (AAsset *) assetForPath: (NSString *)path withMode: (int)mode
+{
+  AAsset *asset = NULL;
+  
+  if (_assetManager && _mainBundle)
+    {
+      NSString *resourcePath = [_mainBundle resourcePath];
+
+      if ([path hasPrefix: resourcePath]
+	&& [path length] > [resourcePath length])
+	{
+	  NSString *assetPath;
+
+	  assetPath = [path substringFromIndex: [resourcePath length] + 1];
+	  asset = AAssetManager_open(_assetManager,
+	    [assetPath fileSystemRepresentation], mode);
+	}
+    }
+  
+  return asset;
+}
+
++ (AAssetDir *) assetDirForPath: (NSString *)path
+{
+  AAssetDir *assetDir = NULL;
+  
+  if (_assetManager && _mainBundle)
+    {
+      NSString *resourcePath = [_mainBundle resourcePath];
+
+      if ([path hasPrefix: resourcePath])
+	{
+	  NSString *assetPath = @"";
+
+	  if ([path length] > [resourcePath length])
+	    {
+	      assetPath = [path substringFromIndex: [resourcePath length] + 1];
+	    }
+
+	  assetDir = AAssetManager_openDir(_assetManager,
+	    [assetPath fileSystemRepresentation]);
+	  
+	  if (assetDir)
+	    {
+	      /* AAssetManager_openDir() always returns an object,
+	       * so we check if the directory exists by ensuring
+	       * it contains a file
+	       */
+	      BOOL exists = AAssetDir_getNextFileName(assetDir) != NULL;
+	      if (exists)
+		{
+		  AAssetDir_rewind(assetDir);
+		}
+	      else
+		{
+		  AAssetDir_close(assetDir);
+		  assetDir = NULL;
+		}
+	    }
+	}
+    }
+  
+  return assetDir;
+}
+
+#endif /* __ANDROID__ */
 
 @end
 
