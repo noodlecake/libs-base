@@ -60,10 +60,12 @@ enum
 typedef double CGFloat;
 #define CGFLOAT_MIN DBL_MIN
 #define CGFLOAT_MAX DBL_MAX
+#define CGFLOAT_EPSILON DBL_EPSILON
 #else
 typedef float CGFloat;
 #define CGFLOAT_MIN FLT_MIN
 #define CGFLOAT_MAX FLT_MAX
+#define CGFLOAT_EPSILON FLT_EPSILON
 #endif
 
 /*
