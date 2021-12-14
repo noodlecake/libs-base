@@ -475,7 +475,11 @@
 /* #undef HAVE_PTHREAD_NP_H */
 
 /* Define to 1 if you have the `pthread_spin_lock' function. */
-/* #undef HAVE_PTHREAD_SPIN_LOCK */
+#if (__ANDROID_API__ < 24)
+#define HAVE_PTHREAD_SPIN_LOCK 0
+#else
+#define HAVE_PTHREAD_SPIN_LOCK 1
+#endif
 
 /* Define this if you work on sysv */
 #define HAVE_PTS_STREAM_MODULES 0
