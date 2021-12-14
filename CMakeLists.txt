@@ -257,7 +257,7 @@ include_directories(
 message("-- building foundation as shared lib")
 add_library(foundation SHARED ${SRC} ${INCL})
 
-target_link_libraries(foundation ${log-lib} ${z-lib}
+target_link_libraries(foundation ${log-lib} z
 		objc
 		android
 		${CMAKE_CURRENT_LIST_DIR}/../prebuilt/${CMAKE_BUILD_TYPE}/${CMAKE_ANDROID_ARCH_ABI}/lib/libffi.a) # -fuse-ld=gold
